@@ -29,8 +29,9 @@ route and transport machinery the GitHub App path uses today. A developer can cl
 call the GitHub API from the client container against a real repository without a GitHub App
 installation, while the token never enters that container. Because a static token cannot be
 narrowed per session, the gateway enforces the scope instead: GraphQL is refused unless the
-token is fine-grained and the operator opts in, and every push is checked against a required
-ref allowlist before any byte reaches GitHub. Production deployments cannot select the kind.
+token is fine-grained and the operator opts in, and mutations are refused even then; every
+push is checked against a required ref allowlist before any byte reaches GitHub. Production
+deployments cannot select the kind.
 
 ## Motivation
 
@@ -59,9 +60,9 @@ access, so `gh` could never work. A token does, and the host has one.
 - **Same custody.** The token enters the service through the protected-file reader the App
   key uses, is held by one process-owned owner, and reaches requests only through custody
   slots. The container material is byte-identical to the App path.
-- **Scope enforced, not described.** GraphQL off for `git-read` and off by default; a required
-  `pushRefAllowlist` checked at the gateway; session duration capped at eight hours; grant
-  identity disjoint from App grants.
+- **Scope enforced, not described.** GraphQL off for `git-read`, off by default and read-only
+  when enabled; a required `pushRefAllowlist` checked at the gateway; session duration capped
+  at eight hours; grant identity disjoint from App grants.
 - **Production cannot select it.** Kubernetes projection, Helm, the k3d launcher and the
   registry factory stay unaware of the kind; the standalone loader requires both a config
   literal and a process flag.
@@ -131,22 +132,26 @@ upstream expiry.
 
 ### Scope at the gateway
 
-- **GraphQL.** The route policy gains `graphql: "token-bounded" | "deny"` per profile. The
-  static source answers `deny` for `git-read` always (GraphQL bypasses the per-profile REST
-  write gate today and is bounded only by the App token's permissions) and for other profiles
-  unless `allowGraphql` is set with a fine-grained token.
+- **GraphQL.** The route policy gains `graphql: "token-bounded" | "read-only" | "deny"` per
+  profile. The static source answers `deny` for `git-read` always (GraphQL bypasses the
+  per-profile REST write gate today and is bounded only by the App token's permissions) and
+  for other profiles unless `allowGraphql` is set with a fine-grained token. Then it is
+  `read-only`: bodies containing `mutation` are refused, since `createRef` or `updateRef`
+  would write refs outside the push allowlist. No admitted REST route writes refs.
 - **Pushes.** `RequestPlan.inputPolicy` already buffers and inspects a body before credential
   use (GraphQL uses it). The static source sets it on `git-push` plans with a pure
   receive-pack inspector: pkt-lines up to the first flush are parsed as `<old> <new> <ref>`
   commands (plus `shallow` lines; `push-cert` refused; at most 256 commands), and every ref
-  must pass the same `allowsPushRef` matcher the client hook uses. A disallowed ref is answered
-  400 before any byte goes upstream, so `git push --no-verify` and a replaced `core.hooksPath`
-  change nothing. The client configuration still carries the allowlist so the hook gives the
-  friendly first refusal. Receive-pack has no protocol-v2 form and Git does not gzip it.
+  must be a well-formed branch name and pass the same `allowsPushRef` matcher the client hook
+  uses. A disallowed ref is answered 400 before any byte goes upstream, so `git push
+  --no-verify` and a replaced `core.hooksPath` change nothing. The client configuration still
+  carries the allowlist so the hook gives the friendly first refusal. Receive-pack has no
+  protocol-v2 form and Git does not gzip it. Pushes are buffered in memory, so the loader
+  caps `gitPushInputBytes` at 64 MiB for this kind.
 - **Identity.** A token grant hashes `authority: "github-token"`, a static capability policy
-  (`static-token-route-bounded-rest-only-v1` or `…-graphql-v1`), the push allowlist and the
-  profile's REST write-route map under the honest name `routePermissions`. App grant JSON is
-  byte-identical to today and pinned by a recorded-value test, so an App binding never matches
+  (`static-token-route-bounded-rest-only-v1` or `…-read-only-graphql-v1`), the push
+  allowlist and the profile's REST write-route map under the honest name `routePermissions`.
+  App grant JSON is byte-identical to today and pinned by a recorded-value test, so an App binding never matches
   a token grant and vice versa.
 
 ### Architecture
@@ -278,12 +283,14 @@ Required outcomes and evidence:
 
 | Outcome | Evidence |
 | --- | --- |
-| Token never reaches the client | Isolation harness token mode: sentinel absent from agent files, `/proc/*/environ`, `cmdline`, agent and service logs, `docker inspect`. Live: the in-container probe streams its surfaces out; the host greps the token file against the snapshot and logs (count 0). No step passes secret bytes into the client by stdin, argv, env or mount. |
+| Token never reaches the client | Live: the in-container probe streams its surfaces out (agent files, `/proc/*/environ`, `cmdline`), also during an in-flight `git-remote-https`; the host greps the token file against the snapshot, agent and service logs and `docker inspect` (count 0; the session bearer is the positive control). No step passes secret bytes into the client by stdin, argv, env or mount. |
 | Clone, push, `gh api` work | Fixture end-to-end with `acceptStatic`; live clone, commit, push to `refs/heads/agent/*`, `gh api repos/...`. Installation-token issuances: 0. |
-| Scope enforced | Push to `refs/heads/main` refused by the gateway even with `--no-verify`; GraphQL 400 by default and for `git-read` with `allowGraphql`; `git-read` push denied before any acquire. |
+| Scope enforced | Push to `refs/heads/main` refused by the gateway even with `--no-verify`; GraphQL 400 by default and for `git-read` with `allowGraphql`; mutations refused with `allowGraphql`; `git-read` push denied before any acquire. |
 | Lifecycle correct for `expiry-only` | Renewal without retire; superseded, refused and post-close slots released on the next sweep (first tests of this branch); DISPOSED with `cleanup.pending 0`. |
 | Production closed | Projected inputs reject the kind; registry factory rejects a token authority; loader refuses without flag or literal or above 8 h; deploy lint passes; App grantId unchanged. |
 | No new raw capability | Boundary script and source-boundary test pass without edits. |
+
+Follow-up: an isolation harness token mode, so CI repeats the live probe with a sentinel.
 
 Unverified until PR B runs: Git's receive-pack body is never gzip-encoded in practice (the
 gateway would answer 400 if it were; the live check confirms), and the gateway's memory use
