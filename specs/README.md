@@ -64,6 +64,7 @@ recorded status is not proof of current implementation or release availability.
 | Gateway–Harness storage split                               | [Decision](rfcs/28-gateway-harness-storage-split.md)        | —                                                                               |
 | GitHub Actions integration and test coverage for Enterprise | —                                                           | [Plan / record](plans/19-github-actions-test-coverage/index.md)                 |
 | Generic OIDC sign-in for existing accounts                  | [Decision](rfcs/0042-oidc-sign-in.md)                       | —                                                                               |
+| GitHub organization allowlist for sign-in                   | [Decision](rfcs/0061-github-org-allowlist.md)               | —                                                                               |
 | GitHub sign-in for existing accounts                        | [Decision](rfcs/31-human-federated-sign-in/index.md)              | —                                                                               |
 | Harness authentication bindings                             | [Decision](rfcs/30-harness-auth-binding.md)                 | —                                                                               |
 | Independent image and chart publication                     | —                                                           | [Plan / record](plans/41-independent-image-chart-publication.md)          |
