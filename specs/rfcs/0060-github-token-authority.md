@@ -9,7 +9,7 @@ status: Proposed
   maintainers for the common-owner change.
 - **Created:** 2026-10-04
 - **Last updated:** 2026-10-04
-- **RFC PR:** _to be filed_ (`docs(specs): propose rfc-0060 github token authority for local development`)
+- **RFC PR:** [#1196](https://github.com/openclaw/openclaw-enterprise/pull/1196)
 - **Implementation plan:** none; delivery is two pull requests, listed under Delivery.
 - **Related:** [RFC 31 repository credentials](31-repository-credentials/index.md) and its
   [qualification](31-repository-credentials/qualification.md);
