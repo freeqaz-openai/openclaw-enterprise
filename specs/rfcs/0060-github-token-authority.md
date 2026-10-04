@@ -147,7 +147,8 @@ upstream expiry.
   --no-verify` and a replaced `core.hooksPath` change nothing. The client configuration still
   carries the allowlist so the hook gives the friendly first refusal. Receive-pack has no
   protocol-v2 form and Git does not gzip it. Pushes are buffered in memory, so the loader
-  caps `gitPushInputBytes` at 64 MiB for this kind.
+  caps `gitPushInputBytes` at 64 MiB for this kind; larger pushes get a 413 before token use
+  (#1236).
 - **Identity.** A token grant hashes `authority: "github-token"`, a static capability policy
   (`static-token-route-bounded-rest-only-v1` or `…-read-only-graphql-v1`), the push
   allowlist and the profile's REST write-route map under the honest name `routePermissions`.
@@ -290,14 +291,15 @@ Required outcomes and evidence:
 | Production closed | Projected inputs reject the kind; registry factory rejects a token authority; loader refuses without flag or literal or above 8 h; deploy lint passes; App grantId unchanged. |
 | No new raw capability | Boundary script and source-boundary test pass without edits. |
 
-Follow-up: an isolation harness token mode, so CI repeats the live probe with a sentinel.
+Follow-ups: isolation harness token mode, done (#1239); streaming pushes past the command
+section, open.
 
 The live check with PR B (host `gh` token, private scratch repository) passed: clone, push to
 `refs/heads/agent/*`, gateway 400 for `--no-verify` pushes outside the allowlist with the
 default branch unchanged on GitHub, `gh api` 200, GraphQL 400, and no token bytes in the client
 probe, logs or `docker inspect`. The allowed push also shows Git sends the receive-pack body
-uncompressed, as the inspector requires. Still unmeasured: the gateway's memory use when a
-large push body is buffered at the lowered `gitPushInputBytes` in the development example.
+uncompressed, as the inspector requires. Measured since: a buffered push peaks near twice its
+size (#1236).
 
 <a id="alternatives-and-open-decisions"></a>
 
