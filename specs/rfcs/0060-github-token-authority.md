@@ -141,9 +141,9 @@ upstream expiry.
 - **Pushes.** `RequestPlan.inputPolicy` already buffers and inspects a body before credential
   use (GraphQL uses it). The static source sets it on `git-push` plans with a pure
   receive-pack inspector: pkt-lines up to the first flush are parsed as `<old> <new> <ref>`
-  commands (plus `shallow` lines; `push-cert` refused; at most 256 commands), and every ref
-  must be a well-formed branch name and pass the same `allowsPushRef` matcher the client hook
-  uses. A disallowed ref is answered 400 before any byte goes upstream, so `git push
+  commands (plus `shallow` lines; `push-cert` refused; over 256 commands get 413
+  `push-ref-limit-exceeded`), and every ref must be strict UTF-8 (no normalization), a
+  well-formed branch name, and pass the same `allowsPushRef` matcher the client hook uses. A disallowed ref is answered 400 before any byte goes upstream, so `git push
   --no-verify` and a replaced `core.hooksPath` change nothing. The client configuration still
   carries the allowlist so the hook gives the friendly first refusal. Receive-pack has no
   protocol-v2 form and Git does not gzip it. Pushes are buffered in memory, so the loader
