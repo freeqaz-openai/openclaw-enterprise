@@ -9,7 +9,8 @@ status: Proposed
 - **Created:** 2026-10-04
 - **Last updated:** 2026-10-04
 - **RFC PR:** [#1229](https://github.com/openclaw/openclaw-enterprise/pull/1229)
-- **Implementation plan:** none; delivery is one pull request, listed under Delivery.
+- **Implementation plan:** none; delivery is one pull request,
+  [#1231](https://github.com/openclaw/openclaw-enterprise/pull/1231), listed under Delivery.
 - **Related:** [RFC 31 GitHub sign-in](31-human-federated-sign-in/index.md);
   [external sign-in reference](../../docs/reference/authentication/external-sign-in.md);
   [production settings](../../docs/reference/settings/production.md#github-sign-in-and-trusted-proxies);
@@ -117,7 +118,8 @@ changes the client ID, which is a new provider instance and needs every identity
 - Values are trimmed and lowercased. Organization logins follow GitHub's rule (letters,
   digits, single inner hyphens, up to 39 characters); team slugs are lowercase letters,
   digits, `-` and `_`. At most 10 entries in total, so the number of GitHub requests per
-  sign-in stays bounded. Anything else fails startup, and Helm refuses to render it.
+  sign-in stays bounded. Anything else fails startup, Helm refuses to render it, and the
+  installation profile renderer refuses it at preflight.
 - Either variable without the GitHub client ID and secret fails startup.
 - API process only, like the other GitHub sign-in settings.
 
@@ -206,12 +208,13 @@ in the earlier token or profile step stays `PROVIDER_UNAVAILABLE`, as today.
 
 ## Delivery and verification
 
-One implementation pull request, `feat(auth): optional github org allowlist at sign-in`:
+One implementation pull request, [#1231](https://github.com/openclaw/openclaw-enterprise/pull/1231)
+`feat(auth): optional github org allowlist at sign-in`:
 
-1. Parse and validate the two variables with the GitHub settings; render them from Helm with
-   matching validation.
+1. Parse and validate the two variables with the GitHub settings; render them from Helm and
+   the installation profile with matching validation.
 2. Add the membership step to the GitHub exchange, the two audit codes in State, the callback
-   redirect reason, and the Console messages.
+   redirect reason, and the Console messages. The log collector exports `step: membership`.
 3. Document the variables, the App permission, the refusal codes and the 403 checklist in the
    external sign-in reference, production settings, the environment cheatsheet, the
    deployment guide and the Helm values.
