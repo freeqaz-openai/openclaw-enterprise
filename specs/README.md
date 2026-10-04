@@ -65,6 +65,7 @@ recorded status is not proof of current implementation or release availability.
 | GitHub Actions integration and test coverage for Enterprise | —                                                           | [Plan / record](plans/19-github-actions-test-coverage/index.md)                 |
 | Generic OIDC sign-in for existing accounts                  | [Decision](rfcs/0042-oidc-sign-in.md)                       | —                                                                               |
 | GitHub sign-in for existing accounts                        | [Decision](rfcs/31-human-federated-sign-in/index.md)              | —                                                                               |
+| GitHub token authority for local development                | [Decision](rfcs/0060-github-token-authority.md)             | —                                                                               |
 | Harness authentication bindings                             | [Decision](rfcs/30-harness-auth-binding.md)                 | —                                                                               |
 | Independent image and chart publication                     | —                                                           | [Plan / record](plans/41-independent-image-chart-publication.md)          |
 | Independent production image upgrades                       | [Decision](rfcs/36-coordinated-image-upgrade.md)            | —                                                                               |
