@@ -115,9 +115,9 @@ changes the client ID, which is a new provider instance and needs every identity
 
 - Both unset or empty: off. Either set: the check runs, and a person needs to match **any**
   entry in either list.
-- Values are trimmed and lowercased. Organization logins follow GitHub's rule (letters,
-  digits, single inner hyphens, up to 39 characters); team slugs are lowercase letters,
-  digits, `-` and `_`. At most 10 entries in total, so the number of GitHub requests per
+- Values are trimmed and lowercased. Organization logins are letters, digits and hyphens,
+  starting with a letter or digit, up to 39 characters (looser than GitHub's current rule, so
+  older names still fit); team slugs are lowercase letters, digits, `-` and `_`. At most 10 entries in total, so the number of GitHub requests per
   sign-in stays bounded. Anything else fails startup, Helm refuses to render it, and the
   installation profile renderer refuses it at preflight.
 - Either variable without the GitHub client ID and secret fails startup.
@@ -201,10 +201,12 @@ A membership lookup "fails" on a transport error, the deadline, a redirect, `429
   logins, organization names or tokens;
 - no session is issued; password sign-in is unaffected.
 
-A `403` at this step usually means configuration, not an outage: the App is not installed on
-that organization, its owner has not accepted Members: read, the organization blocked the App,
-or SAML SSO enforcement wants a session the user lacks. The operator guide says so. An outage
-in the earlier token or profile step stays `PROVIDER_UNAVAILABLE`, as today.
+A `403` at this step usually means configuration, not an outage: the organization blocked the
+App, its owner has not accepted Members: read, or SAML SSO enforcement wants a session the user
+lacks. GitHub may instead answer `404` for an organization without the App installed or a
+misspelled slug, which refuses every member as `MEMBERSHIP_REQUIRED` with no warning log; the
+operator guide gives the check for both. An outage in the earlier token or profile step stays
+`PROVIDER_UNAVAILABLE`, as today.
 
 ## Delivery and verification
 
@@ -271,10 +273,12 @@ working until they expire (at most 8 hours); revoke them to apply the list at on
      `membership` (`removed`) events and revoke sessions for the matching subject. Closest to
      immediate; needs a public webhook endpoint with secret verification and a replay story.
      Invariant either way: OCE disable/detach remains the authoritative offboarding.
-2. **SAML SSO organizations.** Unverified: with SAML enforcement, GitHub may refuse the
-   membership lookup with 403 until the user has an active SAML session, which would show as
-   `MEMBERSHIP_UNAVAILABLE`. Needs a check against a SAML-enforced organization before we
-   claim support.
+2. **What GitHub answers for misconfiguration and SAML.** Unverified against real GitHub (the
+   tests use fakes): whether an organization without the App installed, or a SAML-enforced
+   organization without an active SAML session, answers `403` (`MEMBERSHIP_UNAVAILABLE`, with a
+   warning log) or `404` (`MEMBERSHIP_REQUIRED`, silently). Either way it fails closed. Needs
+   one check against a real organization, and a SAML-enforced one, before we claim support or
+   tune the operator advice.
 3. **Dedicated sign-in App.** Should the guide recommend a sign-in-only App (Members: read,
    no repository permissions) instead of reusing the repository integration's App? Better
    least privilege; costs a client-ID change and re-attachment for existing installations.
