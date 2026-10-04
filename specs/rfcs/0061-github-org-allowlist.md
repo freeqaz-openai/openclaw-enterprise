@@ -8,7 +8,7 @@ status: Proposed
 - **Owner:** freeqaz (proposal); authentication maintainers for the sign-in callback.
 - **Created:** 2026-10-04
 - **Last updated:** 2026-10-04
-- **RFC PR:** to be linked when opened
+- **RFC PR:** [#1229](https://github.com/openclaw/openclaw-enterprise/pull/1229)
 - **Implementation plan:** none; delivery is one pull request, listed under Delivery.
 - **Related:** [RFC 31 GitHub sign-in](31-human-federated-sign-in/index.md);
   [external sign-in reference](../../docs/reference/authentication/external-sign-in.md);
