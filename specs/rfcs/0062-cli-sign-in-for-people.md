@@ -8,7 +8,7 @@ status: Proposed
 - **Owner:** freeqaz (proposal and auth review). Scope and release: OCE maintainers.
 - **Created:** 2026-10-04
 - **Last updated:** 2026-10-04
-- **RFC PR:** to be added when opened
+- **RFC PR:** [#1235](https://github.com/openclaw/openclaw-enterprise/pull/1235)
 - **Implementation plan:** none yet; delivery steps are listed below.
 - **Related:** [Authentication](../../docs/reference/authentication.md);
   [external sign-in and account controls](../../docs/reference/authentication/external-sign-in.md);
