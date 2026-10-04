@@ -292,9 +292,12 @@ Required outcomes and evidence:
 
 Follow-up: an isolation harness token mode, so CI repeats the live probe with a sentinel.
 
-Unverified until PR B runs: Git's receive-pack body is never gzip-encoded in practice (the
-gateway would answer 400 if it were; the live check confirms), and the gateway's memory use
-when a push body is buffered at the lowered `gitPushInputBytes` in the development example.
+The live check with PR B (host `gh` token, private scratch repository) passed: clone, push to
+`refs/heads/agent/*`, gateway 400 for `--no-verify` pushes outside the allowlist with the
+default branch unchanged on GitHub, `gh api` 200, GraphQL 400, and no token bytes in the client
+probe, logs or `docker inspect`. The allowed push also shows Git sends the receive-pack body
+uncompressed, as the inspector requires. Still unmeasured: the gateway's memory use when a
+large push body is buffered at the lowered `gitPushInputBytes` in the development example.
 
 <a id="alternatives-and-open-decisions"></a>
 
