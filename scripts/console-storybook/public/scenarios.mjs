@@ -377,7 +377,7 @@ export const scenarios = {
     singleAgent: true,
     nativeAdmin: "available",
     description:
-      "Open the permitted Claw or Fleet administration. Sign out returns to the existing login screen.",
+      "Open the permitted Claw or Fleet administration. Sign out, then sign in again with example credentials: the launcher is the default destination.",
     gap: "Simulated permissions and availability; not live backend or runtime proof.",
   },
   launcherMultiple: {
@@ -455,6 +455,19 @@ export const scenarios = {
     observabilityDenied: true,
     description:
       "Use any example username and password to sign in to the fixture and continue to the simulated native UI. Do not enter real credentials.",
+  },
+
+  launcherDefaultLogin: {
+    group: "Pages/Launcher",
+    name: "Default login after sign-out",
+    path: "/console/login",
+    signedOut: true,
+    launcher: true,
+    singleAgent: true,
+    nativeAdmin: "available",
+    observabilityDenied: true,
+    description:
+      "Bare login has no return destination. Sign in with example credentials to open the only assigned Claw instead of the administration page. Do not enter real credentials.",
   },
 
   runtimeImages: {

@@ -580,7 +580,7 @@ function showLogin(message = "", returnPath = null) {
       }
       pinSessionKey(signedIn?.sessionKey);
       password.value = "";
-      history.replaceState(null, "", destination ?? "/console/agents");
+      history.replaceState(null, "", destination ?? "/console/launch");
       await loadPage();
     } catch (error) {
       if (!lifetime.isCurrent(active)) {
@@ -723,7 +723,7 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
       if (lifetime.isCurrent(active)) {
         showLogin(
           providerFailure(externalProviders[externalAttempt.provider].label),
-          "/console/agents",
+          "/console/launch",
         );
       }
       return;
@@ -746,7 +746,7 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
     if (session === null) {
       const destination =
         providerError !== null
-          ? "/console/agents"
+          ? "/console/launch"
           : current.feature === "login"
             ? current.url.searchParams.get("return")
             : pageUrl(current.target, current.namespace);
@@ -781,7 +781,7 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
       history.replaceState(
         null,
         "",
-        safeReturn(current.url.searchParams.get("return")) ?? "/console/agents",
+        safeReturn(current.url.searchParams.get("return")) ?? "/console/launch",
       );
       void loadPage();
       return;

@@ -10,3 +10,4 @@ export const NoAccess = { ...story("launcherEmpty") };
 export const DiscoveryFailure = { ...story("launcherFailure") };
 export const Loading = { ...story("launcherLoading") };
 export const SignIn = { ...story("launcherLogin") };
+export const DefaultSignIn = { ...story("launcherDefaultLogin") };

@@ -127,6 +127,18 @@ test("launcher returns password sign-in to the only authorized Claw and chooser 
   await s.page.getByRole("button", { name: "Sign out" }).click();
   await s.page.getByRole("button", { name: "Login", exact: true }).waitFor();
   assert.equal(await s.page.getByText("Product Claw", { exact: true }).count(), 0);
+  // Signing back in from the logout screen has no return parameter. It must
+  // rediscover this account's destination instead of falling into administration.
+  assert.equal(new URL(s.page.url()).searchParams.has("return"), false);
+  await s.page.getByLabel("Username").fill(owner.credentials.email);
+  await s.page.getByLabel("Password").fill(owner.credentials.password);
+  await s.page.getByRole("button", { name: "Login", exact: true }).click();
+  await s.page.getByRole("heading", { name: "Native workspace reached" }).waitFor();
+  assert.equal(new URL(s.page.url()).origin, s.access.origin);
+  // An already authenticated visit to bare login uses the same default.
+  await s.page.goto(`${s.fixture.origin}/console/login`);
+  await s.page.getByRole("heading", { name: "Native workspace reached" }).waitFor();
+  assert.equal(new URL(s.page.url()).origin, s.access.origin);
 });
 
 test("launcher counts unavailable destinations and rechecks revoked exact-agent access", async (t) => {
@@ -201,7 +213,7 @@ test("launcher shows no-access intentionally and ignores malicious return URLs",
     empty.credentials,
     "/console/login?return=" + encodeURIComponent("//attacker.example.test/console/launch"),
   );
-  await s.page.getByRole("heading", { name: "No readable Namespaces" }).waitFor();
+  await s.page.getByRole("heading", { name: "No access assigned" }).waitFor();
   assert.equal(new URL(s.page.url()).origin, s.fixture.origin);
 });
 

@@ -6,6 +6,10 @@ destinations, choose one by name. **Fleet administration** appears only with
 Installation `administer`; it does not imply access to every Agent. Claws require
 readable Namespace/Agent discovery and exact Agent `administer` permission.
 
+Signing in at `/console/login` without a valid return destination also opens the
+launcher. This includes signing back in after **Sign out**. An explicit supported
+console return path still opens that page after authentication.
+
 An assigned workspace that is stopped, disabled, unsupported, or unavailable
 stays visible without an open link. Use **Refresh availability** to check again.
 A failed discovery offers **Try again**, not a partial list or an automatic

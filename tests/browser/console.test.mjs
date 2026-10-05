@@ -812,7 +812,8 @@ test("an abandoned GitHub attempt does not turn password sign-in into a GitHub f
   await page.getByLabel("Username").fill(fixture.credentials.email);
   await page.getByLabel("Password").fill(fixture.credentials.password);
   await page.getByRole("button", { name: "Login" }).click();
-  await page.waitForURL(/\/console\/agents/);
+  // With no Agents assigned, the launcher's sole destination is administration.
+  await page.waitForURL(/\/console\/namespaces/);
   assert.equal(requests.includes("/api/auth/providers/github/result"), false);
   await expectNoText(page, /Could not sign in with GitHub/);
 });
@@ -972,7 +973,7 @@ test("recovery-only password sign-in keeps the form behind Recovery sign-in", as
     .waitFor();
   await page.getByLabel("Password").fill(fixture.credentials.password);
   await page.getByRole("button", { name: "Login" }).click();
-  await page.waitForURL(/\/console\/agents/);
+  await page.waitForURL(/\/console\/namespaces/);
 });
 
 test("password sign-in stays visible unless discovery reports it recovery-only", async (t) => {

@@ -1,7 +1,7 @@
 ---
 created: 2026-09-01
 updated: 2026-10-05
-last_updated_session: authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866
+last_updated_session: authoring-run/eb1823ee-cdb3-4232-a200-61927e9eb5ed
 ---
 
 # Platform console request flow
@@ -150,6 +150,13 @@ their pinned `x-occ-session-key`, so a replaced cookie yields login.
 `authError=<provider>` shows a generic, one-time error. The
 [authentication flow](local-password-authentication.md#3-construct-session-authentication)
 owns the server side.
+
+`apps/controller/src/console/console.mjs:showLogin` defaults a successful password
+sign-in to `/console/launch` when `navigation.mjs:safeReturn` finds no supported
+return path. `loadPage` uses the same default for an authenticated login-page visit
+and provider-error recovery. Confirmed logout calls `showLogin` without a return
+path, so the next account rediscovers its own destinations. Explicit console deep
+links retain their return targets.
 
 `apps/controller/src/auth/index.ts:requireTrustedBrowserOrigin` checks Origin
 before sign-in/out, even for SDK calls bypassing Better Auth middleware; headerless
@@ -349,6 +356,8 @@ refresh and inspection.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-05 01:49: Route default login and logout re-entry through the launcher. (authoring-run/eb1823ee-cdb3-4232-a200-61927e9eb5ed - 3c225afe0fe753933cb1537858e5f411d4b2b997)
 
 - 2026-10-05 00:56: Added launcher discovery and navigation alongside this source change. (authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866 - 0154c2a4ee15cfed43c7f79558c16f7ac2644d15)
 
