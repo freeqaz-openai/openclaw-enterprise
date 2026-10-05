@@ -6,6 +6,7 @@ import { createNavigation, pages } from "./navigation.mjs";
 import { createShell, panel, sorted } from "./shell.mjs";
 import { createDraftStore } from "./drafts.mjs";
 import { renderRuntimeImages } from "./runtime-images.mjs";
+import { renderLauncher } from "./launcher.mjs";
 
 const app = document.querySelector("#app");
 const lifetime = createViewLifetime();
@@ -690,13 +691,13 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
   if (!retained) {
     publicPanel("Loading…", "Checking your session.");
   }
-  if (!Object.hasOwn(pages, current.feature) && current.feature !== "login") {
+  if (!Object.hasOwn(pages, current.feature) && !["login", "launch"].includes(current.feature)) {
     publicPanel("Page not found", "This console page is unavailable.", "Go to Agents", () =>
       navigate("agents", current.namespace),
     );
     return;
   }
-  if (current.feature !== "login" && !retained) {
+  if (!["login", "launch"].includes(current.feature) && !retained) {
     shell = renderShell(current.feature, true);
     panel(shell.view, "Loading…", "Checking your session and Namespace access.");
   }
@@ -752,7 +753,7 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
       showLogin(
         providerError !== null
           ? providerFailure(providerError.label)
-          : current.feature !== "login" &&
+          : !["login", "launch"].includes(current.feature) &&
               current.url.pathname !== "/console/" &&
               current.url.pathname !== "/console"
             ? "Your session has expired."
@@ -783,6 +784,19 @@ async function loadPage({ fromNavigation = false, reuseView = fromNavigation } =
         safeReturn(current.url.searchParams.get("return")) ?? "/console/agents",
       );
       void loadPage();
+      return;
+    }
+    if (current.feature === "launch") {
+      await renderLauncher({
+        app,
+        session,
+        request,
+        url: current.url,
+        isCurrent: () => lifetime.isCurrent(active),
+        logout,
+        retry: () => void loadPage({ reuseView: false }),
+        choose: () => navigate("launch?choose=1", null, true),
+      });
       return;
     }
     // Read the admin-only destination once per session owner. Non-administrators

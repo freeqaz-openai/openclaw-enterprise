@@ -154,6 +154,10 @@ export function createShell({ app, pages, route, pageUrl, navigate, loadPage, lo
     });
     enableMenuKeys(menu, closeAccount);
     menu.append(
+      button("Switch destination", () => navigate("launch?choose=1", null), {
+        role: "menuitem",
+        tabindex: "-1",
+      }),
       button("Settings", () => navigate("settings"), { role: "menuitem", tabindex: "-1" }),
       button("Logout", () => void logout(), { role: "menuitem", tabindex: "-1" }),
     );

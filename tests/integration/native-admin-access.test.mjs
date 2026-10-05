@@ -669,6 +669,54 @@ test("native admin proxy strips browser credentials and preserves the Agent gate
     "authorization-denied proxy requests must not reach native gateway",
   );
 });
+test("native document login handoff preserves the exact Agent without redirecting API or denied users", async (t) => {
+  const context = await createNativeAdminFixture(t);
+  const native = (await nativeStatus(context)).data;
+  const browserHeaders = {
+    host: nativeAuthority(native),
+    accept: "text/html",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document",
+  };
+  const document = await injectJson(context.fixture, "GET", "/", { headers: browserHeaders });
+  assert.equal(document.statusCode, 302);
+  assert.equal(document.headers["cache-control"], "no-store");
+  const login = new URL(document.headers.location);
+  assert.equal(login.origin, publicOrigin);
+  assert.equal(login.pathname, "/console/login");
+  const destination = new URL(login.searchParams.get("return"), publicOrigin);
+  assert.equal(destination.pathname, "/console/launch");
+  assert.equal(destination.searchParams.get("agent"), context.agent.id);
+  assert.equal(destination.searchParams.get("namespace"), context.namespace.id);
+  for (const request of [
+    { method: "GET", url: "/api/auth/session", headers: browserHeaders },
+    {
+      method: "GET",
+      url: "/",
+      headers: { host: nativeAuthority(native), accept: "application/json" },
+    },
+    { method: "POST", url: "/", headers: browserHeaders },
+    { method: "GET", url: "/", headers: { ...browserHeaders, authorization: "Bearer invalid" } },
+    {
+      method: "GET",
+      url: "/",
+      headers: { ...browserHeaders, host: `agent-unknown.${nativeDomain}` },
+    },
+  ]) {
+    const denied = await injectJson(context.fixture, request.method, request.url, {
+      headers: request.headers,
+    });
+    assert.equal(denied.statusCode, 403);
+    assert.equal(denied.headers.location, undefined);
+  }
+  const limited = await createReadOperateSession(context, "document-denied");
+  const denied = await injectJson(context.fixture, "GET", "/", {
+    headers: { ...browserHeaders, cookie: limited.cookie },
+  });
+  assert.equal(denied.statusCode, 403);
+  assert.equal(denied.headers.location, undefined);
+});
+
 test("native Agent requests retain their own origin boundary", async (t) => {
   const context = await createNativeAdminFixture(t);
   const status = await nativeStatus(context);

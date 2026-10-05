@@ -58,6 +58,13 @@ The console and Agent hosts share the ordinary OCE session cookie through the co
 
 Native chat or other activity in the Agent tab does not renew the console session. Session expiry, logout, session revocation, permission removal, pilot disablement, Agent unavailability, or a revision change closes active WebSockets during the authorization lease. Reconnecting uses the same stable Agent host and the current active revision when the shared OCE session, exact Agent permission, and native configuration remain valid.
 
+A signed-out browser document navigation on a known Agent host redirects to the
+canonical console login with an exact Agent return reference. After sign-in,
+the [launcher](console/launcher.md) rechecks access before opening that
+Agent. API calls, WebSocket upgrades, writes, unknown hosts, and authenticated
+permission denials do not redirect into login. An external access gateway may
+still require its own sign-in before OCE receives the request.
+
 ## Native authority and drift
 
 The native admin UI runs with the same shared native trusted-proxy identity used by workspace files: `occ-workspace-files` with `operator.admin`. OCC attributes availability, proxy admission, and socket closure checks to the human session and exact Agent IAM decision. The native gateway sees the shared service identity, not a per-human native account.

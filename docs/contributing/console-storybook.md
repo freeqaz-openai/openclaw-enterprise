@@ -355,3 +355,5 @@ shows organization-wide policy restrictions. Existing missing-credential,
 read-only, and save-failure stories still cover those surrounding states.
 Capture the final interactions and native values outside the repository;
 attach reviewable screenshots and video to the task and PR.
+
+[Pages/Launcher walkthrough](../reference/console/launcher.md).

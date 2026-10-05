@@ -1,7 +1,7 @@
 ---
 created: "2026-09-19"
-updated: "2026-09-29"
-last_updated_session: "89a4ccd7-3974-43c6-b08a-be02269a8d01"
+updated: "2026-10-05"
+last_updated_session: "authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866"
 ---
 
 # Agent Native Admin UI Flow
@@ -46,7 +46,10 @@ graph TD
   O --> P["Browser opens derived Agent host with shared OCE session cookie"]
   P --> Q["OCC resolves host to exact Agent using platform state"]
   Q --> R{"Shared session and exact Agent administer still valid?"}
-  R -->|no| S["Return protected-route error"]
+  R -->|signed-out document| LOGIN["Canonical login with exact Agent return intent"]
+  LOGIN --> LAUNCH["Launcher rechecks current access and resolves native URL"]
+  LAUNCH --> P
+  R -->|denied or non-document request| S["Return protected-route error"]
   R -->|yes| T["Resolve current active revision and supported native config"]
   T --> U["OCC strips browser credentials and proxies HTTP to private gateway"]
   T -->|WebSocket with exact Origin| V["OCC proxies 101 upgrade with revision lease"]
@@ -110,6 +113,17 @@ A domain-scoped session cookie cannot use a host-only `__Host-` prefix. The cont
 ### 6. OCC intercepts native-host HTTP requests
 
 `apps/controller/src/index.ts:interceptNativeAdminHttp`
+
+When admission reports an invalid or expired session, a `GET` accepting HTML
+with navigation/document fetch metadata (when supplied) can redirect to the
+configured canonical `/console/login`. OCC resolves the native hostname to an
+existing exact Agent and constructs a local `/console/launch` return path with
+that Agent and Namespace reference. No caller-supplied return URL is forwarded.
+Unknown hosts stay denied. `/api/` reads, non-document fetches, writes, service-key
+requests, and WebSocket upgrades never receive this HTML handoff. An authenticated
+IAM denial remains denied rather than opening another Agent. After login, the
+[launcher](platform-console.md) independently rechecks authorization and obtains
+the current native URL before navigation. Redirects use `Cache-Control: no-store`.
 
 The `onRequest` hook calls `interceptNativeAdminHttp` before normal OCC route
 handling. For hosts beneath the configured native admin domain, that early
@@ -192,6 +206,8 @@ The init container cannot write through the gateway's later mount path.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-05 00:56: Added browser-only login handoff alongside this source change. (authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866 - 0154c2a4ee15cfed43c7f79558c16f7ac2644d15)
 
 - 2026-09-30 19:00: Remembered a denied availability read per tab and session owner so reloads do not add an audited denial per view.
 

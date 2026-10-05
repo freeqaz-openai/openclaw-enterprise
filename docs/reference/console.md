@@ -1,9 +1,9 @@
 # Platform console
 
-Open `/console/` on your OCC address to manage Agents and supported Slack settings,
-workspace files, and credentials. Authorized operators can also open an Agent's
-[native admin UI](#open-the-native-admin-ui). The console has no rollback, live
-runtime health, or browser chat through OCE.
+Use the [workspace launcher](console/launcher.md) to open your Claw, or `/console/`
+to manage Agents, Slack, workspace files, and credentials. Authorized operators
+can open the [native admin UI](#open-the-native-admin-ui). The console has no
+rollback, live runtime health, or browser chat through OCE.
 
 Start with [Create and deploy Agents](console/create-and-deploy.md) or
 [Understand Agent detail](../guides/console/agent-details.md). Operator setup and

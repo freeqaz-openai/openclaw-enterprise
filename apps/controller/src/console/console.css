@@ -2215,3 +2215,116 @@ summary:focus-visible {
   opacity: 0.55;
   text-decoration: line-through;
 }
+
+/* The launcher is an entry point, not the administration shell. */
+.launcher {
+  min-height: 100dvh;
+}
+.launcher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--line);
+}
+.launcher-header .brand {
+  margin: 0;
+}
+.launcher-account {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.launcher-account strong,
+.launcher-account span {
+  display: block;
+}
+.launcher-account > div {
+  text-align: right;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.launcher-account button {
+  flex-shrink: 0;
+}
+.launcher-content {
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 64px 32px;
+}
+.launcher-content > h1 {
+  font-size: 30px;
+}
+.launcher-destinations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+.launcher-destination {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.launcher-destination h2 {
+  overflow-wrap: anywhere;
+}
+.launcher-destination > p {
+  font-size: 13px;
+}
+.launcher-status {
+  font-weight: 550;
+  margin-bottom: 22px;
+}
+.launcher-status.available {
+  color: var(--success);
+}
+.launcher-status.unavailable {
+  color: var(--warning);
+}
+.launcher-open {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-weight: 550;
+  text-decoration: none;
+}
+.launcher-open:hover {
+  text-decoration: underline;
+}
+.launcher-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+.launcher-footer p {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .launcher-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+  .launcher-account {
+    flex: 1 0 100%;
+    justify-content: space-between;
+  }
+  .launcher-account > div {
+    text-align: left;
+  }
+  .launcher-content {
+    padding: 36px 20px;
+  }
+  .launcher-destinations {
+    grid-template-columns: 1fr;
+  }
+}

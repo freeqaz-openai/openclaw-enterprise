@@ -110,6 +110,9 @@ export function installFixture(scenario, evidence) {
           createdAt,
         },
       ];
+  if (scenario.launcher) {
+    namespaces.splice(1);
+  }
   const backends = scenario.emptyBackends
     ? []
     : [{ id: "chatgpt-demo", name: "ChatGPT", type: "chatgpt" }];
@@ -328,6 +331,13 @@ export function installFixture(scenario, evidence) {
       name: "Documentation assistant",
       activeRevisionId: null,
     });
+  }
+  if (scenario.singleAgent) {
+    for (const id of agents.keys()) {
+      if (id !== agent.id) {
+        agents.delete(id);
+      }
+    }
   }
   if (scenario.unreadableAgentConfiguration) {
     for (const field of ["harnessAuth", "plugins", "pluginApprovers", "repositoryBindings"]) {
@@ -929,10 +939,15 @@ export function installFixture(scenario, evidence) {
         }
         if (suffix === "/native-admin" && method === "GET") {
           return response({
-            status: scenario.nativeAdmin ?? "disabled",
+            status:
+              scenario.launcher && id !== agent.id
+                ? "stopped"
+                : (scenario.nativeAdmin ?? "disabled"),
             url:
               (id === agent.id ? scenario.nativeAdminUrl : undefined) ??
-              "/storybook-fixtures/native-admin.html",
+              (scenario.launcher
+                ? new URL("/storybook-fixtures/native-admin.html", location.origin).href
+                : "/storybook-fixtures/native-admin.html"),
           });
         }
         if (suffix === "/runtime-images" && method === "GET") {

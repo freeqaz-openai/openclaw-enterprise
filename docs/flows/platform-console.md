@@ -1,7 +1,7 @@
 ---
 created: 2026-09-01
-updated: 2026-09-29
-last_updated_session: authoring-run/1ca6a40a-a247-465f-9a83-182dbcb6ff4e
+updated: 2026-10-05
+last_updated_session: authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866
 ---
 
 # Platform console request flow
@@ -39,7 +39,12 @@ graph TD
     B1 -->|no session| C["Login"]
     C -->|GitHub| C1["Start GitHub sign-in"]
     C1 -->|callback redirect| B1
-    B1 -->|authenticated| D["Read readable Namespaces and validate selection"]
+    B1 -->|launcher| LA["Recheck readable Agents, native access and Installation administer"]
+    LA -->|failed discovery| LE["Show retry without redirect"]
+    LA -->|one available destination| LR["Replace navigation to authorized URL"]
+    LA -->|multiple or unavailable| LC["Show destination chooser and status"]
+    LA -->|none| LN["Show no access assigned"]
+    B1 -->|authenticated console page| D["Read readable Namespaces and validate selection"]
     D -->|debug=true| DBG["Read accessible Agents and runtime image metadata"]
     DBG --> F
     D --> E["Request current page resource"]
@@ -159,6 +164,21 @@ Namespace checks for loads, Refresh, and admission-starting navigation;
 retained-view validation can extend this.
 Empty lists show access guidance. `navigation.mjs:navigate` returns Agent detail/creation
 to Agents; global pages remain open; recovered warnings disappear.
+
+`apps/controller/src/console/launcher.mjs:renderLauncher` owns `/console/launch`
+after `loadPage` validates the session. It freshly reads `/namespaces`, each
+readable Namespace's Agents, exact `native-admin` status, and the existing
+Installation-admin-only `/observability` probe. It does not reuse the shell's
+cached admin decision or denied-read cache. A `403` from either capability check
+omits that destination; any other failed discovery suppresses the entire list
+and offers retry. Requests use the same pinned session key and view lifetime.
+
+Complete discovery counts unavailable destinations too. One available destination
+uses `location.replace`; `choose=1` always shows a chooser. Exact Agent/Namespace
+return references are matched against the authorized discovery result; a missing
+match shows denied access instead of falling through to another destination.
+Only the status API supplies a native URL. The account menu's **Switch destination**
+opens chooser-only mode. No destination preference or permission state is persisted.
 
 ### 3. Authorize the selected page resource
 
@@ -329,6 +349,8 @@ refresh and inspection.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-05 00:56: Added launcher discovery and navigation alongside this source change. (authoring-run/7b57c718-3516-48a9-92c7-b5a660b3c866 - 0154c2a4ee15cfed43c7f79558c16f7ac2644d15)
 
 - 2026-09-30 19:00: Remember denied Agent detail snapshot reads per tab so reloads do not add an audited denial per view.
 - 2026-09-29 20:00: Trace repository descriptions and inherited access. (public-pr/374)

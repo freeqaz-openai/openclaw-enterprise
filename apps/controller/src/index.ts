@@ -4728,6 +4728,34 @@ export function createFastifyApp(options: ControllerAppOptions): FastifyInstance
         canonicalFailure(reply, dependencyUnavailable());
         return true;
       }
+      // Only browser document navigation may hand off to login. API reads, writes,
+      // WebSockets, and authenticated authorization failures retain their denial.
+      if (
+        admission?.reason === "session_invalid" &&
+        publicOrigin !== undefined &&
+        request.method === "GET" &&
+        request.headers.accept
+          ?.split(",")
+          .some((type) => type.trim().split(";", 1)[0] === "text/html") &&
+        (request.headers["sec-fetch-mode"] === undefined ||
+          request.headers["sec-fetch-mode"] === "navigate") &&
+        (request.headers["sec-fetch-dest"] === undefined ||
+          request.headers["sec-fetch-dest"] === "document") &&
+        request.headers.authorization === undefined &&
+        request.headers["x-api-key"] === undefined &&
+        !nativeAdminPathname(request.url).startsWith("/api/")
+      ) {
+        const agent = await boundedNativeAdminAdmission(resolveNativeAdminAgentHost(hostname));
+        if (agent !== undefined) {
+          const destination = new URL("/console/launch", publicOrigin);
+          destination.searchParams.set("namespace", agent.namespaceId);
+          destination.searchParams.set("agent", agent.id);
+          const login = new URL("/console/login", publicOrigin);
+          login.searchParams.set("return", `${destination.pathname}${destination.search}`);
+          reply.header("cache-control", "no-store").redirect(login.href);
+          return true;
+        }
+      }
       canonicalFailure(
         reply,
         admission === undefined

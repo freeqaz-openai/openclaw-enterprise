@@ -47,7 +47,9 @@ export function createNavigation({ getNamespaceId, isLoggingOut, loadPage }) {
       const path = url.pathname.slice(9);
       if (
         url.origin !== location.origin ||
-        (!Object.hasOwn(pages, path) && !/^agents\/(new|agt_[a-f0-9-]+)$/.test(path))
+        (!Object.hasOwn(pages, path) &&
+          path !== "launch" &&
+          !/^agents\/(new|agt_[a-f0-9-]+)$/.test(path))
       ) {
         return null;
       }
