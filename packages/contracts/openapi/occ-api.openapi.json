@@ -1322,6 +1322,66 @@
             },
             "description": "Conflict"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
           "503": {
             "content": {
               "application/json": {
@@ -1418,6 +1478,36 @@
               }
             },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -1633,6 +1723,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -1752,6 +1872,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -1847,6 +2027,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -1967,6 +2177,66 @@
             },
             "description": "Conflict"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
           "503": {
             "content": {
               "application/json": {
@@ -2050,6 +2320,36 @@
               }
             },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -2271,6 +2571,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -2390,6 +2720,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -2486,6 +2876,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -2605,6 +3025,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -2701,6 +3181,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -2820,6 +3330,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -2916,6 +3486,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -3035,6 +3635,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -3130,6 +3790,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -3249,6 +3939,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -3521,6 +4271,66 @@
               }
             },
             "description": "Forbidden"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -3806,6 +4616,66 @@
             },
             "description": "Forbidden"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
           "503": {
             "content": {
               "application/json": {
@@ -4089,6 +4959,66 @@
               }
             },
             "description": "Forbidden"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -4504,6 +5434,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -4623,6 +5583,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -4877,6 +5897,66 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "503": {
             "content": {
@@ -5237,7 +6317,7 @@
     },
     "/api/auth/sign-in/email": {
       "post": {
-        "description": "Authenticates a local account and issues a user session cookie. In the password-only profile, repeated failed attempts for one email, or from one client address behind a trusted proxy, are limited and return 429; with GitHub, Google or OIDC sign-in, every attempt counts, successful ones included. A successful sign-in also sets an HttpOnly known-device cookie; later attempts for that email from the same browser spend the browser's own budget instead of the email's. The cookie never authenticates.",
+        "description": "Authenticates a local account and issues a user session cookie. In the password-only profile, repeated failed attempts for one email, or from one client address behind a trusted proxy, are limited and return 429; with GitHub, Google or OIDC sign-in, every attempt counts, successful ones included. A successful sign-in also sets an HttpOnly known-device cookie; later attempts for that email from the same browser spend the browser's own budget instead of the email's. The cookie never authenticates. An email with a NUL character or an unpaired UTF-16 surrogate is refused with 400 INVALID_REQUEST and spends budget like a rejected password; the password is not checked for either.",
         "operationId": "signInEmail",
         "requestBody": {
           "content": {
@@ -5286,6 +6366,36 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Bad Request",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -5315,6 +6425,66 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Payload Too Large",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "description": "Unsupported Media Type",
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": { "type": "string" },
+                        "message": { "type": "string" }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": { "requestId": { "type": "string" } },
+                      "required": ["requestId"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error", "meta"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
           },
           "429": {
             "content": {

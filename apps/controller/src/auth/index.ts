@@ -162,6 +162,7 @@ import type {
   AdmittedSession,
 } from "../admission/admission-verifier.ts";
 import { AdmissionFailure } from "../admission/admission-verifier.ts";
+import { RequestFailure, unstorableTextFailure } from "../http/errors.ts";
 import { betterAuthIssuer, validHttpBaseURL } from "./configuration.ts";
 
 export { betterAuthIssuer, OCC_BETTER_AUTH_ISSUER_PREFIX } from "./configuration.ts";
@@ -496,7 +497,7 @@ function setAuthHeaders(
 }
 
 function authFailure(error: unknown): { readonly status: number; readonly code: string } {
-  if (error instanceof AdmissionFailure) {
+  if (error instanceof AdmissionFailure || error instanceof RequestFailure) {
     return { status: error.status, code: error.code };
   }
   if (error instanceof APIError || (typeof error === "object" && error !== null)) {
@@ -765,7 +766,11 @@ async function sendAuthEndpoint(
       reply.header("retry-after", String(error.retryAfterSeconds));
     }
     reply.status(failure.status).send({
-      error: { code: failure.code, message: failureMessage },
+      // A malformed request names its offending field, as on every API route.
+      error: {
+        code: failure.code,
+        message: error instanceof RequestFailure ? error.message : failureMessage,
+      },
       meta: { requestId: request.id },
     });
   }
@@ -1097,6 +1102,10 @@ export function createControllerAuth(options: ControllerAuthOptions): Controller
       // Timing differences here are hidden by the slow lane's floor. Lookup failures
       // propagate, so an outage is 503 rather than a refusal.
       async isReserved(email) {
+        // No account can hold such an email, and PostgreSQL would refuse to look it up.
+        if (unstorableTextFailure("body", email) !== undefined) {
+          return false;
+        }
         if (humanLogin !== undefined) {
           // The recovery account is the documented way in when a provider is down, so
           // strangers spending its email can slow it but never refuse it.
@@ -1374,6 +1383,10 @@ export function createControllerAuth(options: ControllerAuthOptions): Controller
         // Read from the validated input, not the credential pair, so the admission key
         // is plainly derived from the email alone.
         const email = String(input.email).trim().toLowerCase();
+        // An email with a NUL character or an unpaired surrogate is a 400, as on every API
+        // route. It is refused inside admission, so it spends budget like the bad-credential
+        // answer it replaces. The password is never stored as text and is not checked.
+        const unstorableEmail = unstorableTextFailure("body", { email: input.email });
         const deviceCookie = knownDeviceFromCookieHeader(request.headers.cookie, knownDeviceSecure);
         // The account's state is read only for an entry issued for this email, so a
         // forged or foreign cookie reads nothing; a stale entry just means no exemption.
@@ -1410,9 +1423,13 @@ export function createControllerAuth(options: ControllerAuthOptions): Controller
         if (humanLogin) {
           // The curated endpoint checks the password, issues the session and marks the
           // browser as a known device; only credential rejections spend budget.
-          return passwordAdmission.admit(attempt, () =>
-            runPrivateEndpoint(request, "/oce/password", body),
-          );
+          return passwordAdmission.admit(attempt, async () => {
+            // Refused before any account read, like the endpoint's other malformed input.
+            if (unstorableEmail !== undefined) {
+              throw unstorableEmail;
+            }
+            return runPrivateEndpoint(request, "/oce/password", body);
+          });
         }
         return passwordAdmission.admit(attempt, async () => {
           const audit = options.passwordSignInAudit;
@@ -1420,9 +1437,16 @@ export function createControllerAuth(options: ControllerAuthOptions): Controller
           // password reset or account recreation that commits during the sign-in then bumps
           // the state past it and revokes the entry, instead of the old password's sign-in
           // being bound to the new state. A failed read only skips the marking.
-          const accountState = await knownDeviceState(email).catch(() => undefined);
+          const accountState =
+            unstorableEmail === undefined
+              ? await knownDeviceState(email).catch(() => undefined)
+              : undefined;
           let result;
           try {
+            // Audited as a refusal, as Better Auth's own invalid-email answer was.
+            if (unstorableEmail !== undefined) {
+              throw unstorableEmail;
+            }
             result = await api.signInEmail({
               body: { ...body, rememberMe: true },
               headers: authHeaders(request.headers),

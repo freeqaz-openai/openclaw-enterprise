@@ -211,3 +211,130 @@ test("a password reset during a sign-in revokes the known-device entry that sign
   const current = async () => `password\0user-1\0method-1\0${version - 1}`;
   assert.ok(await verifyKnownDevice(secret, email, value, Date.now(), current));
 });
+
+// A Better Auth store that, like PostgreSQL text, cannot look up a NUL character.
+function nulRefusingDatabase(memoryDatabase) {
+  return (options) => {
+    const adapter = memoryAdapter(memoryDatabase)(options);
+    return {
+      ...adapter,
+      async findOne(query) {
+        if (JSON.stringify(query.where ?? []).includes("\\u0000")) {
+          throw new Error("invalid byte sequence for encoding UTF8: 0x00");
+        }
+        return adapter.findOne(query);
+      },
+    };
+  };
+}
+
+const unstorableEmails = [
+  ["nul\u0000@example.test", "a NUL character"],
+  ["surrogate\ud800@example.test", "an unpaired UTF-16 surrogate"],
+];
+
+function assertUnstorableEmail(response, problem) {
+  assert.equal(response.status, 400, JSON.stringify(response.payload));
+  assert.deepEqual(response.payload.error, {
+    code: "INVALID_REQUEST",
+    message: `The request does not match the operation contract: body /email contains ${problem}.`,
+  });
+}
+
+test("an email no account can hold is a 400 that spends the password budget", async () => {
+  const outcomes = [];
+  const reads = [];
+  const memoryDatabase = { user: [], session: [], account: [], verification: [], apikey: [] };
+  const auth = createControllerAuth({
+    mode: "development",
+    installationId: "ins_sign_in_audit_unstorable",
+    baseURL,
+    secret,
+    secureCookies: false,
+    database: nulRefusingDatabase(memoryDatabase),
+    passwordSignInAudit: {
+      accepted: async (userId) => outcomes.push(["accepted", userId]),
+      refused: async () => outcomes.push(["refused"]),
+    },
+    knownDeviceState: async (address) => {
+      reads.push(address);
+      return undefined;
+    },
+    // Every Installation administrator's email is reserved, so a spent email takes the
+    // slow lane, which looks the email up.
+    passwordAdministrator: async () => true,
+    passwordSlowLaneFloors: { floorMs: 1, maxFloorMs: 1 },
+  });
+  for (const [address, problem] of unstorableEmails) {
+    outcomes.length = 0;
+    // Refused like the bad-credential answer it replaces: audited, and counted.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      assertUnstorableEmail(
+        await signIn(auth, { email: address, password: "wrong-password-guess" }),
+        problem,
+      );
+    }
+    assert.equal(outcomes.length, 10);
+    assert.deepEqual(new Set(outcomes.flat()), new Set(["refused"]));
+    // The spent email is refused, not looked up (PostgreSQL would answer 503).
+    const limited = await signIn(auth, { email: address, password: "wrong-password-guess" });
+    assert.equal(limited.status, 429, JSON.stringify(limited.payload));
+    assert.equal(outcomes.length, 10);
+  }
+  assert.deepEqual(reads, [], "no account state is read for an email no account can hold");
+
+  // The password is never stored as text, so it is not checked: such an account still signs in.
+  const nulPassword = "account-password-\u0000-\ud800";
+  const account = await auth.createAccount({ email, password: nulPassword });
+  outcomes.length = 0;
+  assert.equal((await signIn(auth, { email, password: nulPassword })).status, 200);
+  assert.deepEqual(outcomes, [["accepted", account.id]]);
+});
+
+test("guarded profile: an email no account can hold is a 400 that spends the password budget", async () => {
+  const snapshots = [];
+  const humanLogin = createHumanLogin(
+    {
+      createAttempt: async () => {
+        throw new Error("not used");
+      },
+      consumeAttempt: async () => undefined,
+      snapshotExternal: async () => undefined,
+      // Like PostgreSQL text, which cannot hold a NUL character.
+      snapshotPassword: async (address) => {
+        snapshots.push(address);
+        if (address.includes("\u0000")) {
+          throw new Error("invalid byte sequence for encoding UTF8: 0x00");
+        }
+        return undefined;
+      },
+      recordDenied: async () => {},
+    },
+    {
+      recoveryUserId: "guarded-recovery",
+      github: { clientId: "guarded-client", clientSecret: "guarded-client-secret" },
+    },
+    baseURL,
+  );
+  const auth = createControllerAuth({
+    mode: "development",
+    installationId: "ins_sign_in_audit_guarded_unstorable",
+    baseURL,
+    secret,
+    secureCookies: false,
+    database: memoryAdapter({ user: [], session: [], account: [], verification: [], apikey: [] }),
+    humanLogin,
+    passwordSlowLaneFloors: { floorMs: 1, maxFloorMs: 1 },
+  });
+  for (const [address, problem] of unstorableEmails) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      assertUnstorableEmail(
+        await signIn(auth, { email: address, password: "wrong-password-guess" }),
+        problem,
+      );
+    }
+    const limited = await signIn(auth, { email: address, password: "wrong-password-guess" });
+    assert.equal(limited.status, 429, JSON.stringify(limited.payload));
+  }
+  assert.deepEqual(snapshots, [], "no account is read for an email no account can hold");
+});

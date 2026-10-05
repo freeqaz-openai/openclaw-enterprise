@@ -731,6 +731,76 @@ test("NUL characters and unpaired surrogates are refused in bodies and path para
   );
 });
 
+test("authentication routes refuse NUL characters and unpaired surrogates", async () => {
+  // The /api/auth/* routes sit outside the OCC API routes; PostgreSQL answered 5xx there.
+  const fixture = await createFixture();
+  await bootstrap(fixture);
+  const nul = "a NUL character";
+  const surrogate = "an unpaired UTF-16 surrogate";
+  const account = { email: "unstorable@example.test", password: "unstorable-password" };
+  const cases = [
+    [
+      "POST",
+      "/api/auth/accounts",
+      { ...account, email: "nul\u0000@example.test" },
+      "body",
+      "/email",
+      nul,
+    ],
+    ["POST", "/api/auth/accounts", { ...account, name: "Lone \ud800" }, "body", "/name", surrogate],
+    [
+      "POST",
+      "/api/auth/service-keys",
+      { servicePrincipalId: "sp\u0000", name: "key" },
+      "body",
+      "/servicePrincipalId",
+      nul,
+    ],
+    ["DELETE", "/api/auth/service-keys/key%00x", undefined, "params", "/keyId", nul],
+    ["GET", "/api/auth/accounts/user%00x", undefined, "params", "/userId", nul],
+    ["POST", "/api/auth/accounts/user%00x/enrol", undefined, "params", "/userId", nul],
+    [
+      "POST",
+      "/api/auth/accounts/user%00x/disable",
+      { expectedVersion: 1 },
+      "params",
+      "/userId",
+      nul,
+    ],
+    [
+      "POST",
+      "/api/auth/accounts/user/methods/m%00x/detach",
+      { expectedVersion: 1 },
+      "params",
+      "/methodId",
+      nul,
+    ],
+    [
+      "POST",
+      "/api/auth/recovery",
+      { userId: "user\ud800", expectedCurrentUserId: "user", expectedVersion: 1 },
+      "body",
+      "/userId",
+      surrogate,
+    ],
+  ];
+  const before = fixture.auditSink.events.length;
+  for (const [method, pathname, body, context, path, problem] of cases) {
+    const result = await request(fixture.app, pathname, {
+      method,
+      ...(body === undefined ? {} : { body }),
+    });
+    assert.equal(result.response.status, 400, `${method} ${pathname}`);
+    // The same code and message as the OCC API routes; the /api/auth/* error schema has no
+    // details field, so, like their other validation failures, these carry none.
+    assert.deepEqual(result.payload.error, {
+      code: "INVALID_REQUEST",
+      message: `The request does not match the operation contract: ${context} ${path} contains ${problem}.`,
+    });
+  }
+  assert.equal(fixture.auditSink.events.length, before);
+});
+
 test("router failures answer the error envelope without echoing the path", async () => {
   const fixture = await createFixture();
   await bootstrap(fixture);

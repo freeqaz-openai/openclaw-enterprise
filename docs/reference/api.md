@@ -132,6 +132,8 @@ Create an administrator-controlled local auth account
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`201` response body:** `application/json`
@@ -171,6 +173,7 @@ Inspect current human account state
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
@@ -228,10 +231,13 @@ Disable a human account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -278,10 +284,13 @@ Re-enable a disabled human account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -318,6 +327,7 @@ Enrol an existing account that activation skipped
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
@@ -372,10 +382,13 @@ Detach an external sign-in identity from an account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -423,10 +436,13 @@ Attach an exact GitHub identity to an existing account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -474,10 +490,13 @@ Attach an exact Google identity to an existing account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -525,10 +544,13 @@ Attach an exact OIDC identity to an existing account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -575,10 +597,13 @@ Revoke all sessions for a human account
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -667,6 +692,8 @@ Confirm which session a GitHub sign-in created
 | `200` | OK |
 | `401` | Unauthorized |
 | `403` | Forbidden |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -750,6 +777,8 @@ Confirm which session a Google sign-in created
 | `200` | OK |
 | `401` | Unauthorized |
 | `403` | Forbidden |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -833,6 +862,8 @@ Confirm which session an OIDC sign-in created
 | `200` | OK |
 | `401` | Unauthorized |
 | `403` | Forbidden |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -940,10 +971,13 @@ Move the recovery designation to another administrator
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
@@ -995,6 +1029,8 @@ Issue a service API key
 | `403` | Forbidden |
 | `404` | Not Found |
 | `409` | Conflict |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `503` | Service Unavailable |
 
 **`201` response body:** `application/json`
@@ -1086,7 +1122,7 @@ Sign in with email and password
 
 **Operation ID:** `signInEmail`
 
-**Permissions:** Authenticates a local account and issues a user session cookie. In the password-only profile, repeated failed attempts for one email, or from one client address behind a trusted proxy, are limited and return 429; with GitHub, Google or OIDC sign-in, every attempt counts, successful ones included. A successful sign-in also sets an HttpOnly known-device cookie; later attempts for that email from the same browser spend the browser's own budget instead of the email's. The cookie never authenticates.
+**Permissions:** Authenticates a local account and issues a user session cookie. In the password-only profile, repeated failed attempts for one email, or from one client address behind a trusted proxy, are limited and return 429; with GitHub, Google or OIDC sign-in, every attempt counts, successful ones included. A successful sign-in also sets an HttpOnly known-device cookie; later attempts for that email from the same browser spend the browser's own budget instead of the email's. The cookie never authenticates. An email with a NUL character or an unpaired UTF-16 surrogate is refused with 400 INVALID_REQUEST and spends budget like a rejected password; the password is not checked for either.
 
 ##### Request body
 
@@ -1104,7 +1140,10 @@ Sign in with email and password
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
+| `413` | Payload Too Large |
+| `415` | Unsupported Media Type |
 | `429` | Too Many Requests |
 | `503` | Service Unavailable |
 
