@@ -293,6 +293,7 @@ test("an email no account can hold is a 400 that spends the password budget", as
 
 test("guarded profile: an email no account can hold is a 400 that spends the password budget", async () => {
   const snapshots = [];
+  const denials = [];
   const humanLogin = createHumanLogin(
     {
       createAttempt: async () => {
@@ -308,7 +309,9 @@ test("guarded profile: an email no account can hold is a 400 that spends the pas
         }
         return undefined;
       },
-      recordDenied: async () => {},
+      recordDenied: async (reason) => {
+        denials.push(reason);
+      },
     },
     {
       recoveryUserId: "guarded-recovery",
@@ -337,4 +340,6 @@ test("guarded profile: an email no account can hold is a 400 that spends the pas
     assert.equal(limited.status, 429, JSON.stringify(limited.payload));
   }
   assert.deepEqual(snapshots, [], "no account is read for an email no account can hold");
+  // Refused like the endpoint's other malformed input, without a denial audit.
+  assert.deepEqual(denials, []);
 });
