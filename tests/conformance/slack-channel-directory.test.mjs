@@ -55,90 +55,46 @@ test("Slack directory accepts only literal IP or managed Service proxy endpoints
   }
 });
 
-for (const allowClawHub of [false, true]) {
-  test(`bundled Slack proxy restricts destinations with ClawHub ${allowClawHub ? "enabled" : "disabled"}`, async (t) => {
-    const proxyPort = await reservePort();
-    const upstreamPort = await reservePort();
-    const upstream = net.createServer((socket) => {
-      socket.on("error", () => {});
-      socket.write("fixture-upstream");
-    });
-    await new Promise((resolve) => upstream.listen(upstreamPort, "127.0.0.1", resolve));
-    t.after(() => upstream.close());
-    const dnsFixture = await writeDnsFixture(upstreamPort);
-    const child = spawn(
-      process.execPath,
-      ["--import", dnsFixture, "apps/controller/src/slack-proxy.mjs"],
-      {
-        cwd: new URL("../../", import.meta.url),
-        env: {
-          ...process.env,
-          OCC_SLACK_PROXY_PORT: String(proxyPort),
-          OCC_SLACK_PROXY_ALLOW_CLAWHUB: String(allowClawHub),
-        },
-        stdio: ["ignore", "ignore", "pipe"],
-      },
-    );
-    t.after(() => child.kill());
-    await waitForProxy(proxyPort);
-
-    assert.match(
-      await requestThroughProxy(proxyPort, "GET / HTTP/1.1\r\nHost: slack.com\r\n\r\n"),
-      /^HTTP\/1\.1 405 Method Not Allowed/,
-    );
-    assert.match(
-      await connectThroughProxy(proxyPort, "example.com:443"),
-      /^HTTP\/1\.1 403 Forbidden/,
-    );
-    assert.match(await connectThroughProxy(proxyPort, "slack.com:80"), /^HTTP\/1\.1 403 Forbidden/);
-    assert.match(
-      await connectThroughProxy(proxyPort, "slack.com.evil.example:443"),
-      /^HTTP\/1\.1 403 Forbidden/,
-    );
-    assert.match(
-      await connectThroughProxy(proxyPort, "slack.com:443"),
-      /^HTTP\/1\.1 200 Connection Established/,
-    );
-    // Enabling the catalog must not admit subdomains, lookalikes, private IPs, or other ports.
-    for (const target of [
-      "clawhub.ai.evil.example:443",
-      "sub.clawhub.ai:443",
-      "clawhub.ai:80",
-      "127.0.0.1:443",
-      "169.254.169.254:443",
-    ]) {
-      assert.match(await connectThroughProxy(proxyPort, target), /^HTTP\/1\.1 403 Forbidden/);
-    }
-    assert.match(
-      await connectThroughProxy(proxyPort, "clawhub.ai:443"),
-      allowClawHub ? /^HTTP\/1\.1 200 Connection Established/ : /^HTTP\/1\.1 403 Forbidden/,
-    );
+test("bundled Slack proxy process restricts methods and CONNECT targets", async (t) => {
+  const proxyPort = await reservePort();
+  const upstreamPort = await reservePort();
+  const upstream = net.createServer((socket) => {
+    socket.on("error", () => {});
+    socket.write("fixture-upstream");
   });
-}
-
-test(
-  "bundled Slack proxy rejects an invalid ClawHub opt-in before listening",
-  { timeout: 5000 },
-  async (t) => {
-    const child = spawn(process.execPath, ["apps/controller/src/slack-proxy.mjs"], {
+  await new Promise((resolve) => upstream.listen(upstreamPort, "127.0.0.1", resolve));
+  t.after(() => upstream.close());
+  const dnsFixture = await writeDnsFixture(upstreamPort);
+  const child = spawn(
+    process.execPath,
+    ["--import", dnsFixture, "apps/controller/src/slack-proxy.mjs"],
+    {
       cwd: new URL("../../", import.meta.url),
-      env: { ...process.env, OCC_SLACK_PROXY_PORT: "0", OCC_SLACK_PROXY_ALLOW_CLAWHUB: "1" },
+      env: { ...process.env, OCC_SLACK_PROXY_PORT: String(proxyPort) },
       stdio: ["ignore", "ignore", "pipe"],
-    });
-    t.after(() => child.kill());
-    let stderr = "";
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    const code = await new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("exit", resolve);
-    });
-    assert.equal(code, 1);
-    assert.match(stderr, /OCC_SLACK_PROXY_ALLOW_CLAWHUB must be true or false/);
-    assert.doesNotMatch(stderr, /Slack proxy listening/);
-  },
-);
+    },
+  );
+  t.after(() => child.kill());
+  await waitForProxy(proxyPort);
+
+  assert.match(
+    await requestThroughProxy(proxyPort, "GET / HTTP/1.1\r\nHost: slack.com\r\n\r\n"),
+    /^HTTP\/1\.1 405 Method Not Allowed/,
+  );
+  assert.match(
+    await connectThroughProxy(proxyPort, "example.com:443"),
+    /^HTTP\/1\.1 403 Forbidden/,
+  );
+  assert.match(await connectThroughProxy(proxyPort, "slack.com:80"), /^HTTP\/1\.1 403 Forbidden/);
+  assert.match(
+    await connectThroughProxy(proxyPort, "slack.com.evil.example:443"),
+    /^HTTP\/1\.1 403 Forbidden/,
+  );
+  assert.match(
+    await connectThroughProxy(proxyPort, "slack.com:443"),
+    /^HTTP\/1\.1 200 Connection Established/,
+  );
+});
 
 async function writeDnsFixture(upstreamPort) {
   const directory = await mkdtemp(join(tmpdir(), "openclaw-slack-proxy-test-"));
@@ -148,7 +104,7 @@ async function writeDnsFixture(upstreamPort) {
     `import dns from "node:dns";
 const originalLookup = dns.lookup;
 dns.lookup = (hostname, options, callback) => {
-  if (!["slack.com", "clawhub.ai"].includes(hostname)) {
+  if (hostname !== "slack.com") {
     return originalLookup(hostname, options, callback);
   }
   if (typeof options === "function") {
@@ -164,7 +120,7 @@ dns.lookup = (hostname, options, callback) => {
 import net from "node:net";
 const originalConnect = net.connect;
 net.connect = (...args) => {
-  if (["slack.com", "clawhub.ai"].includes(args[0]?.host) && args[0]?.port === 443) {
+  if (args[0]?.host === "slack.com" && args[0]?.port === 443) {
     return originalConnect({ ...args[0], host: "127.0.0.1", port: ${upstreamPort} }, ...args.slice(1));
   }
   return originalConnect(...args);

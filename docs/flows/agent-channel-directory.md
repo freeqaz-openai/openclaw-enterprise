@@ -1,7 +1,7 @@
 ---
 created: 2026-09-27
-updated: 2026-10-05
-last_updated_session: authoring-run/5d1e6e19-157a-401b-b1cf-9b5ba0eed6f5
+updated: 2026-09-29
+last_updated_session: authoring-run/5b79ed06-59ff-4a5d-9cf4-0479d7c8d717
 ---
 
 # Agent Channel Directory Lookup Flow
@@ -69,15 +69,9 @@ through the configured proxy. With the managed proxy enabled, Helm points the
 API at the `openclaw-enterprise-slack-proxy.<namespace>.svc` Service, sets that
 exact host in `OCC_CHANNEL_DIRECTORY_MANAGED_PROXY_HOST`, and limits API egress
 to the proxy Pod selector. With an external literal IPv4 proxy, Helm limits API
-egress to that IP and port. The managed proxy checks CONNECT targets in
-`apps/controller/src/slack-proxy.mjs:isAllowedConnectTarget`: Slack hostnames on
-port 443 are allowed, and the exact `clawhub.ai:443` target is additionally
-allowed when Helm enables `slackProxy.allowClawHub`. Helm passes this opt-in as
-`OCC_SLACK_PROXY_ALLOW_CLAWHUB`; malformed values fail startup. A denied target
-receives `403` before an upstream connection opens. Its NetworkPolicy still
-limits upstream traffic to public IPv4 TCP 443, excluding private and reserved
-ranges. Dedicated gateways using this shared proxy can therefore fetch ClawHub
-catalogs when enabled; the Slack directory Driver continues to call Slack only.
+egress to that IP and port. The managed proxy accepts CONNECT only for Slack
+hostnames on port 443, while its NetworkPolicy allows upstream egress to public
+IPv4 addresses on TCP 443, excluding private and reserved ranges.
 The selected SecretDriver invokes `withValue` and verifies backend ownership.
 OCC rechecks grants and Secret backend identity after the read. It passes the
 token only in process to the ChannelDriver. The bundled Slack implementation
@@ -151,8 +145,6 @@ view.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
-
-- 2026-10-05 10:25: Document opt-in exact-host ClawHub access through the shared managed proxy. (authoring-run/5d1e6e19-157a-401b-b1cf-9b5ba0eed6f5 - 5e2ce3a270672b421b8d34f61dba5a4d3147725a)
 
 - 2026-09-28 15:37: Document the managed Helm Slack proxy path and selector-scoped API egress. (authoring-run/5b79ed06-59ff-4a5d-9cf4-0479d7c8d717 - 6c56149f1f2b7290d8526d87c3624c9b7db09fbf)
 

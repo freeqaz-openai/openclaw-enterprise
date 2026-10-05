@@ -7,16 +7,6 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const ALLOWED_SUFFIXES = [".slack.com", ".slack-edge.com", ".slack-msgs.com"];
 const ALLOWED_HOSTS = new Set(["slack.com", "slack-edge.com", "slack-msgs.com"]);
 
-function parseAllowClawHub(value) {
-  if (value === undefined || value === "" || value === "false") {
-    return false;
-  }
-  if (value === "true") {
-    return true;
-  }
-  throw new Error("OCC_SLACK_PROXY_ALLOW_CLAWHUB must be true or false.");
-}
-
 function parsePort(value) {
   if (value === undefined || value === "") {
     return DEFAULT_PORT;
@@ -43,15 +33,14 @@ function parseConnectTarget(target) {
   return { host: match[1].toLowerCase(), port };
 }
 
-function isAllowedConnectTarget(target, allowClawHub) {
+function isAllowedSlackConnectTarget(target) {
   const parsed = parseConnectTarget(target);
   if (parsed === undefined || parsed.port !== 443) {
     return false;
   }
   return (
     ALLOWED_HOSTS.has(parsed.host) ||
-    ALLOWED_SUFFIXES.some((suffix) => parsed.host.endsWith(suffix)) ||
-    (allowClawHub && parsed.host === "clawhub.ai")
+    ALLOWED_SUFFIXES.some((suffix) => parsed.host.endsWith(suffix))
   );
 }
 
@@ -59,14 +48,14 @@ function reject(socket, statusCode, message) {
   socket.end(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
 }
 
-function createSlackProxyServer(allowClawHub) {
+function createSlackProxyServer() {
   const server = createServer((request, response) => {
     response.writeHead(405, { "content-type": "text/plain; charset=utf-8" });
     response.end("CONNECT required\n");
   });
 
   server.on("connect", (request, clientSocket, head) => {
-    if (!isAllowedConnectTarget(request.url, allowClawHub)) {
+    if (!isAllowedSlackConnectTarget(request.url)) {
       reject(clientSocket, 403, "Forbidden");
       return;
     }
@@ -102,9 +91,7 @@ function createSlackProxyServer(allowClawHub) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = parsePort(process.env.OCC_SLACK_PROXY_PORT);
-  const server = createSlackProxyServer(
-    parseAllowClawHub(process.env.OCC_SLACK_PROXY_ALLOW_CLAWHUB),
-  );
+  const server = createSlackProxyServer();
   server.listen(port, "0.0.0.0", () => {
     const address = server.address();
     const selectedPort = typeof address === "object" && address !== null ? address.port : port;

@@ -57,14 +57,6 @@ The proxy checks the Slack hostname on every CONNECT request, so its network
 policy can allow public HTTPS without tracking Slack's rotating IP addresses.
 Do not store signed WSS URLs or credentials in configuration or documentation.
 
-If the native Control UI reports a proxy `403` when loading ClawHub categories,
-merge `slackProxy.allowClawHub: true` into the managed proxy's Helm values and
-apply the chart. This admits only `clawhub.ai:443` in addition to Slack; see the
-[proxy host policy](../../reference/drivers/slack-channel.md#enable-lookup-in-production).
-Retry the catalog after rollout and confirm that unrelated destinations still
-receive `403`. Plugin installation may need separately reviewed artifact or
-dependency hosts; catalog access does not prove installation works.
-
 The directory path needs `CONNECT slack.com:443`. The gateway path also needs
 the Slack Socket Mode endpoints returned for the app; review the required
 `slack.com`, `slack-edge.com`, and `slack-msgs.com` domains and their subdomains.

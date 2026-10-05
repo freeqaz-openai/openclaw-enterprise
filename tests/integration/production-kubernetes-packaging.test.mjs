@@ -1922,30 +1922,6 @@ test(
       "app.kubernetes.io/instance": "oce",
       "app.kubernetes.io/component": "slack-proxy",
     });
-    assert.deepEqual(
-      deployment.spec.template.spec.containers[0].env.find(
-        ({ name }) => name === "OCC_SLACK_PROXY_ALLOW_CLAWHUB",
-      ),
-      { name: "OCC_SLACK_PROXY_ALLOW_CLAWHUB", value: "false" },
-    );
-    const clawhubObjects = await resources(
-      (await render({ ...slackProxyValues, "slackProxy.allowClawHub": "true" })).stdout,
-    );
-    const clawhubProxy = clawhubObjects.find(
-      (object) =>
-        object.kind === "Deployment" && object.metadata.name === "openclaw-enterprise-slack-proxy",
-    );
-    assert.deepEqual(
-      clawhubProxy.spec.template.spec.containers[0].env.find(
-        ({ name }) => name === "OCC_SLACK_PROXY_ALLOW_CLAWHUB",
-      ),
-      { name: "OCC_SLACK_PROXY_ALLOW_CLAWHUB", value: "true" },
-    );
-    // The hostname opt-in does not widen callers or bypass the public-HTTPS network fence.
-    assert.deepEqual(
-      clawhubObjects.filter((object) => object.kind === "NetworkPolicy"),
-      objects.filter((object) => object.kind === "NetworkPolicy"),
-    );
     const api = named("Deployment", "openclaw-enterprise-api").spec.template.spec.containers[0];
     assert.deepEqual(
       api.env.find(({ name }) => name === "OCC_CHANNEL_DIRECTORY_PROXY_URL"),
@@ -2070,7 +2046,6 @@ test(
     for (const override of [
       { "slackProxy.serviceName": "1proxy" },
       { "slackProxy.port": "65536" },
-      { "slackProxy.allowClawHub": "yes" },
     ]) {
       await assert.rejects(render({ ...slackProxyValues, ...override }), /slackProxy/);
     }
