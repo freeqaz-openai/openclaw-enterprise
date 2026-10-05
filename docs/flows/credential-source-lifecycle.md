@@ -1,7 +1,7 @@
 ---
 created: "2026-09-26"
-updated: 2026-10-01
-last_updated_session: authoring-run/b158c89c-3010-42ae-95b4-350b05de7441
+updated: 2026-10-05
+last_updated_session: agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110
 ---
 
 # Credential source lifecycle Flow
@@ -74,7 +74,9 @@ Namespace, authorizes `credential_source:create` on it, returns
 `409 CREDENTIAL_GATEWAY_NOT_CONFIGURED` when the Installation selects no
 Credential Gateway, and requires a `ready` Namespace. It asks the selected gateway for `listSourceTypes` and rejects an
 unknown type, an unknown field, or a missing required field with
-`ScopeViolationError` (`404`) before any Secret read or gateway write.
+`ScopeViolationError` (`404`). It then calls the Driver's side-effect-free
+`validateSourceConfig`. Invalid values return `CredentialSourceConfigError`
+(`400 INVALID_REQUEST`) before any Secret read, record creation, or gateway write.
 
 ### 2. Read Secret values
 
@@ -165,7 +167,10 @@ while an Agent draft, active revision, or pending deployment references it. It
 moves a `registering` or `ready` record to `deleting`; database triggers prevent
 leaving `deleting` and returning to `registering`. Outside the transaction, OCC calls `removeSource`. The OpenShell Driver
 deletes the owned provider, confirms it is gone, and deletes the profile when no
-provider of its type remains. A gateway failure returns `503` and leaves the
+provider using its endpoint profile remains. For an invalid stored endpoint,
+it removes no profiles and succeeds only if the gateway confirms that the provider
+is absent. A present provider with unverifiable ownership, an unknown source type,
+or a gateway read failure never counts as absent. A gateway failure returns `503` and leaves the
 record `deleting` for the caller to retry. Until
 `CREDENTIAL_REGISTRATION_FENCE_MS` (70 seconds) after `createdAt`, OCC keeps the
 record and returns `503` even after a successful removal: a Driver finishes an
@@ -245,6 +250,11 @@ than re-attach the source.
   refusal and retry, Namespace gating, admission snapshots, and rejection of Secret-backed
   methods with a gateway selected. It uses an in-process gateway double, not
   OpenShell.
+- `node --test tests/integration/credential-source-api.test.mjs` exercises
+  Fastify, IAM, OCC, and the OpenShell Driver: invalid endpoint rejection without
+  residual records, invalid-row deletion recovery, profile isolation, and custom
+  endpoint lifecycle. Gateway storage and Compute placement are test doubles;
+  this does not prove OpenShell runtime execution.
 - `node --test tests/conformance/openshell-gateway-wire.test.mjs` checks the
   provider, profile, update, and detach RPC encoding against the pinned `v0.1.3-pre.2`
   wire fixture.
@@ -283,6 +293,8 @@ than re-attach the source.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-05 11:36: Validate source configuration before persistence and recover invalid rows without guessing remote ownership. (agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110 - 9958ef0412565864efba7b13995536d7c2a51d22)
 
 - 2026-10-03 18:00: Registration and update reject a Secret reference to another Namespace as an invalid request instead of not-found, as Secret bindings do. (binding-400b)
 - 2026-10-03 16:00: Report `withdrawalInProgress` so an exhausted withdrawal no longer reads as in progress; maintenance re-queues only where it is scheduled. (fix-withdrawal-exhausted)

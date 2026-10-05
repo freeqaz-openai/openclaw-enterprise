@@ -47,6 +47,7 @@ function createTestCredentialGateway(options = {}) {
         create();
       }
     },
+    validateSourceConfig() {},
     async listSourceTypes() {
       return [
         {

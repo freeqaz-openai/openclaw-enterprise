@@ -1,3 +1,4 @@
+import { normalizeOpenAiBaseUrl } from "../../openai-endpoint.ts";
 import {
   asRecord,
   isNonEmptyString,
@@ -2316,26 +2317,13 @@ export class KubernetesComputeDriver implements ComputeDriver {
           "Native OpenClaw session capacity must be an integer between 1 and 1024.",
         );
       }
-      if (options.runtime.codexOpenaiBaseUrl !== undefined) {
-        let endpoint: URL;
-        try {
-          endpoint = new URL(options.runtime.codexOpenaiBaseUrl);
-        } catch {
-          throw new ConfigurationFailure("Codex model endpoint must be an HTTPS API URL.");
-        }
-        if (
-          endpoint.protocol !== "https:" ||
-          endpoint.username !== "" ||
-          endpoint.password !== "" ||
-          endpoint.search !== "" ||
-          endpoint.hash !== "" ||
-          !endpoint.pathname.replace(/\/$/u, "").endsWith("/v1") ||
-          endpoint.pathname.includes("*")
-        ) {
-          throw new ConfigurationFailure(
-            "Codex model endpoint requires HTTPS and a path ending in /v1 without credentials, wildcards, query, or fragment.",
-          );
-        }
+      if (
+        options.runtime.codexOpenaiBaseUrl !== undefined &&
+        normalizeOpenAiBaseUrl(options.runtime.codexOpenaiBaseUrl) === undefined
+      ) {
+        throw new ConfigurationFailure(
+          "Codex model endpoint requires HTTPS and a path ending in /v1 without credentials, wildcards, query, or fragment.",
+        );
       }
       if (options.runtime.codexSeccompProfile !== undefined) {
         validateCodexSeccompProfile(options.runtime.codexSeccompProfile);
@@ -10106,7 +10094,14 @@ chmodSync(${JSON.stringify(nodeStatePath)}, 0o700);`;
       revision.harness.mode === "dedicated" &&
       revision.harnessAuth?.method === "api_key"
     ) {
-      openaiBaseUrl = this.options.runtime?.codexOpenaiBaseUrl?.replace(/\/$/u, "");
+      openaiBaseUrl = this.options.runtime?.codexOpenaiBaseUrl;
+    }
+    if (openaiBaseUrl !== undefined) {
+      const normalized = normalizeOpenAiBaseUrl(openaiBaseUrl);
+      if (normalized === undefined) {
+        throw new ConfigurationFailure("Codex model endpoint requires a valid HTTPS /v1 URL.");
+      }
+      openaiBaseUrl = normalized;
     }
     let runtime: PluginRuntimeSpec | undefined;
     try {

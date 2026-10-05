@@ -1264,7 +1264,7 @@ function dedicatedFirstDeployFixture({ statusProxy = true, clock, modelEndpoint 
 test("custom Codex endpoints compile explicit providers without changing the admitted model IDs", async () => {
   for (const sourceProvider of ["codex", "openai"]) {
     const fixture = dedicatedFirstDeployFixture({
-      modelEndpoint: "https://models.example.test/api/v1",
+      modelEndpoint: "https://MODELS.example.test:443/api/v1/",
     });
     const primary = `${sourceProvider}/vendor/organization/model`;
     const fallback = `${sourceProvider}/codex/native`;

@@ -11,9 +11,11 @@ import type {
   CredentialSourceStatus,
   CredentialSourceType,
 } from "@openclaw-enterprise/contracts";
-import { ScopeViolationError } from "@openclaw-enterprise/occ";
+import { CredentialSourceConfigError, ScopeViolationError } from "@openclaw-enterprise/occ";
 import { asRecord, isNonEmptyString, sha256Hex } from "@openclaw-enterprise/utils";
 import { isAbsolute } from "node:path";
+
+import { normalizeOpenAiBaseUrl } from "../openai-endpoint.ts";
 
 import {
   openShellProviderName,
@@ -159,28 +161,13 @@ function ownedBy(
 }
 
 function sourceBaseUrl(config: Readonly<Record<string, string>>): string {
-  const value = config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL;
-  let endpoint: URL;
-  try {
-    endpoint = new URL(value);
-  } catch {
-    throw new ScopeViolationError("The OpenAI-compatible endpoint must be a valid HTTPS URL.");
-  }
-  if (
-    endpoint.protocol !== "https:" ||
-    endpoint.hostname.length === 0 ||
-    endpoint.username !== "" ||
-    endpoint.password !== "" ||
-    !endpoint.pathname.replace(/\/$/u, "").endsWith("/v1") ||
-    endpoint.pathname.includes("*") ||
-    endpoint.search !== "" ||
-    endpoint.hash !== ""
-  ) {
+  const baseUrl = normalizeOpenAiBaseUrl(config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL);
+  if (baseUrl === undefined) {
     throw new ScopeViolationError(
       "The OpenAI-compatible endpoint must use HTTPS and a path ending in /v1 without wildcards, credentials, query, or fragment.",
     );
   }
-  return `${endpoint.origin}${endpoint.pathname.replace(/\/$/u, "")}`;
+  return baseUrl;
 }
 
 function profileId(
@@ -234,6 +221,19 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
     _context: CredentialGatewayContext,
   ): Promise<readonly CredentialSourceType[]> {
     return SOURCE_TYPES.map((entry) => entry.catalog);
+  }
+
+  validateSourceConfig(input: Pick<CredentialSourceInput, "type" | "config">): void {
+    sourceType(input.type);
+    if (
+      normalizeOpenAiBaseUrl(input.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL) ===
+      undefined
+    ) {
+      throw new CredentialSourceConfigError(
+        OPENAI_BASE_URL_CONFIG,
+        "The OpenAI-compatible endpoint must use HTTPS and a path ending in /v1 without wildcards, credentials, query, or fragment.",
+      );
+    }
   }
 
   async registerSource(
@@ -314,6 +314,10 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
   }
 
   async sourceStatus(context: CredentialSourceContext): Promise<CredentialSourceStatus> {
+    const type = sourceType(context.source.type);
+    const baseUrl = normalizeOpenAiBaseUrl(
+      context.source.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL,
+    );
     const provider = await this.client(context).getProvider(
       openShellWorkspaceName(context.namespace),
       openShellProviderName(context.source.id),
@@ -323,11 +327,8 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
       return { state: "absent" };
     }
     if (
-      !ownedBy(
-        provider,
-        context.source.id,
-        profileId(sourceType(context.source.type), context.source),
-      )
+      baseUrl === undefined ||
+      !ownedBy(provider, context.source.id, type.profile([], baseUrl).id)
     ) {
       return { state: "failed", reason: "The OpenShell provider is not owned by this source." };
     }
@@ -335,12 +336,24 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
   }
 
   async removeSource(context: CredentialSourceContext): Promise<void> {
+    const type = sourceType(context.source.type);
+    const baseUrl = normalizeOpenAiBaseUrl(
+      context.source.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL,
+    );
     const workspace = openShellWorkspaceName(context.namespace);
     const name = openShellProviderName(context.source.id);
     const client = this.client(context);
     const existing = await client.getProvider(workspace, name, context.signal);
+    // Invalid configuration cannot have created a profile, but a real remote
+    // collision is not absence. Never guess its owner or delete another profile.
+    if (baseUrl === undefined) {
+      if (existing !== undefined) {
+        throw new ScopeViolationError("The OpenShell provider's ownership cannot be verified.");
+      }
+      return;
+    }
+    const selectedProfileId = type.profile([], baseUrl).id;
     if (existing !== undefined) {
-      const selectedProfileId = profileId(sourceType(context.source.type), context.source);
       if (!ownedBy(existing, context.source.id, selectedProfileId)) {
         throw new ScopeViolationError(
           "An OpenShell provider with this source's name is not owned by the source.",
@@ -352,7 +365,6 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
       }
     }
     // Workspace deletion requires no profiles, so the last source of a type removes its profile.
-    const selectedProfileId = profileId(sourceType(context.source.type), context.source);
     const remaining = await client.listProviders(workspace, context.signal);
     if (!remaining.some((provider) => provider.type === selectedProfileId)) {
       await client.deleteProviderProfile(workspace, selectedProfileId, context.signal);

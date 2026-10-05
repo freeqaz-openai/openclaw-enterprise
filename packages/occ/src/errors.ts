@@ -511,6 +511,17 @@ export class CredentialGatewayNotConfiguredError extends Error {
   }
 }
 
+/** A Driver rejected nonsecret source configuration before registration. */
+export class CredentialSourceConfigError extends Error {
+  readonly field: string;
+
+  constructor(field: string, message: string) {
+    super(message);
+    this.name = "CredentialSourceConfigError";
+    this.field = field;
+  }
+}
+
 export class DriverSelectionError extends Error {
   constructor(message: string) {
     super(message);

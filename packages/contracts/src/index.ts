@@ -1213,6 +1213,8 @@ export interface CredentialAttachmentStatus {
 export interface CredentialGatewayDriver extends Driver {
   readonly capability: "credential_gateway";
   listSourceTypes(context: CredentialGatewayContext): Promise<readonly CredentialSourceType[]>;
+  /** Validate nonsecret configuration without I/O, before OCC reads Secrets or stores a record. */
+  validateSourceConfig(input: Pick<CredentialSourceInput, "type" | "config">): void;
   registerSource(
     context: CredentialSourceContext,
     input: CredentialSourceInput,

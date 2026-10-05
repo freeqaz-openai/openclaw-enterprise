@@ -1,7 +1,7 @@
 ---
 created: 2026-08-21
-updated: 2026-10-05
-last_updated_session: authoring-run/4e4824a1-f107-44c2-90bf-00fe13ff650c
+updated: 2026-10-06
+last_updated_session: agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110
 ---
 
 # Harness Execution Topology Flow
@@ -114,46 +114,34 @@ namespaces and refuses a legacy split target without altering its labels or stat
 The [upgrade requirements](../reference/drivers/kubernetes-compute.md#existing-split-layout-installations)
 own the operator boundary.
 
-Kubernetes `ensureNamespace` prepares one tenant namespace in a single cluster,
-including adopted namespaces; its storage-role label enables discovery.
-The two-cluster profile retains its control-cluster Gateway target.
-`prepareRevision` and `activateRevision` keep dedicated Gateway and Harness Pods,
-identities and PVCs separate in their selected targets. `deliverGatewaySecrets`
-validates canonical sources for dedicated Gateways; `deliverHarnessAuth` creates
-only the selected model/transport projection. Canonical transport and Gateway
-password sources now stay separate across modes. Legacy combined sources remain
-for older Pods; Compute copies their password to the separate source before
-new templates reference it. If concurrent delivery creates the password source first,
-Compute re-reads it and accepts only the exact-owned, identical password; conflicting
-or foreign sources still fail. App-server DNS includes the Harness namespace; policies select exact
-Namespace, Agent and revision peers. Harness Services select exact Namespace, Agent, revision, workload role, network
-profile and Compute-owned workload name. Gateway Services omit revision for a
-stable route. These selectors match NetworkPolicy before destination translation.
+`ensureNamespace` prepares one single-cluster tenant namespace, including adopted
+targets; its storage-role label enables discovery. Two-cluster Gateways retain
+their control-cluster target. Dedicated Gateway and Harness Pods, identities,
+and PVCs remain separate. `deliverGatewaySecrets` validates canonical sources;
+`deliverHarnessAuth` creates selected model/transport projections.
+Transport and Gateway passwords use separate sources across modes. Compute
+retains legacy combined sources for older Pods and copies their password before
+new templates reference the separate source. Concurrent creation adopts only an
+exact-owned, identical password; foreign or conflicting sources fail.
 [Namespaces and isolation](../reference/drivers/kubernetes-compute/networking-and-isolation.md#namespaces-and-isolation)
-owns app-server DNS, NetworkPolicy peers and Service selectors.
+owns qualified DNS and exact NetworkPolicy/Service selectors. Harness selectors
+include revision and network profile; Gateway selectors omit revision for stability.
 `runtime.gatewayNodeSelector`
 independently places the Gateway Pod and private-state initializer on trusted nodes.
-Because the predecessor Gateway is stopped first (step 3) or otherwise not ready, preparation starts the candidate Gateway after the candidate Harness is
-otherwise ready. That candidate Gateway provides the bootstrap endpoint and changes no unrelated
-Gateway; the revision remains not ready, and never activates, until its exact workspace node is
-enrolled and observed.
-A dedicated Codex Harness names its workspace node `agent-<agent digest>-workspace` on every
-start, so the Gateway's node list keeps one stable name across revisions.
+After the Harness is otherwise ready, preparation starts its candidate Gateway
+as the bootstrap endpoint; the predecessor is stopped (step 3) or unready.
+Activation waits for the exact workspace node to enroll. Dedicated Codex uses
+the stable name `agent-<agent digest>-workspace` across revisions.
 
-Dedicated Codex and dedicated OpenClaw keep separate Agent-owned Gateway and
-Harness ServiceAccounts. Compute owns the Gateway Pod; the selected SandboxDriver
-owns the native Harness Pod. The OpenClaw Harness enrolls as a paired node, owns
-its identity and workspace, and alone receives the model key. It reads the
-one-use enrollment target from a private file; later starts reuse the persisted
-device token. Compute pins the enrolled device in a generated `dedicated-native`
-profile with `inference: "worker"`, so a missing or disconnected Harness fails
-the turn rather than using Gateway inference. An exact callback route and
-session-bound worker admission scope the transport to the owning Agent.
-Embedded OpenClaw uses one combined workload with its exact Agent identity
-and model key. The worker
-has scoped Secret permissions for admitted delivery and node enrollment. Its
-trusted workload-writing authority also projects tenant Secrets. Gateway Pods
-receive no controller or Harness Kubernetes credentials.
+Dedicated Gateway and Harness ServiceAccounts remain separate. Compute owns the
+Gateway Pod; the SandboxDriver owns the native Harness. OpenClaw enrolls from a
+private one-use target, then reuses its persisted device token. Only the Harness
+receives the model key. Compute pins it in a `dedicated-native` profile with
+`inference: "worker"`: disconnection fails turns without Gateway inference.
+Exact callbacks and session-bound admission scope transport to the Agent.
+Embedded OpenClaw combines the workload, Agent identity, and model key.
+The worker's scoped Secret and workload-writing permissions support delivery and
+enrollment; Gateways receive no controller or Harness Kubernetes credentials.
 
 The selected Sandbox consumes the same rendered projections and explicit login
 mode in `HarnessWorkloadRequirements`. Unsupported upstream projection fails
@@ -176,18 +164,13 @@ for candidate rules and the limits of this observation.
 
 `apps/controller/src/worker.ts:ControllerWorker`
 
-For dedicated Kubernetes execution, Compute declares
-`requiresStoppedPredecessors`. `ControllerWorker.prepareRevision` stops every
-earlier runtime, including its Gateway, and waits for Pod termination before
-preparing the replacement, so a redeploy interrupts service until the replacement is ready.
-The worker records each stopped predecessor and skips it on later pending passes
-and maintenance instead of re-stopping it on each readiness poll.
-Compute reports a predecessor that came back (for example, a lost claim's late
-write) as an unready successor, not an error, so the worker stops each recorded
-predecessor again after one claim lease, then after two, four and so on. A failed
-preparation pass, or preparing or activating that predecessor, drops the record.
-Both PVCs survive this downtime window; a failed candidate is recovered by retry
-or a new revision. A newer exclusive revision supersedes old reconciliation and
+Dedicated Compute declares `requiresStoppedPredecessors`: the worker stops all
+predecessors, including Gateways, and waits for Pod termination before replacement.
+Redeployment interrupts service, but both PVCs survive. Retry or a new revision
+recovers a failed candidate. Recorded stops suppress repeated readiness/maintenance
+calls. A returning predecessor makes its successor unready; the worker retries
+its stop after one claim lease, then two, four, and so on. Failed preparation or
+preparing/activating that predecessor clears its stop record. A newer exclusive revision supersedes old reconciliation and
 maintenance, with no automatic rollback; see
 [production revision stages](../reference/drivers/compute.md#production-revision-stages).
 For dedicated Codex API-key authentication, Kubernetes Compute selects the
@@ -201,18 +184,16 @@ explicit compatible endpoint. `probeCodexAuthentication` in
 that endpoint through CLI overrides because its probe ignores user configuration.
 Account login modes and other Harnesses retain their existing endpoints; model
 credentials remain exclusively in the Harness Pod.
-The runtime manifest carries the endpoint and its native `modelProvider` together.
-`gatewayConfigurationDocument` in Kubernetes Compute calls
+Compute normalizes both endpoint sources with
+`apps/controller/src/drivers/openai-endpoint.ts:normalizeOpenAiBaseUrl`.
+For custom endpoints, `gatewayConfigurationDocument` calls
 `apps/controller/src/drivers/compute/codex-model-configuration.ts:codexGatewayModelConfiguration`
-only for a dedicated Codex custom endpoint. It clones the admitted document and
-qualifies primary/fallback references, selectable policy keys, and catalog IDs
-with the endpoint provider in the private Gateway ConfigMap. A native ID beginning
-with `codex/` remains part of the ID; full catalog refs are matched against their
-declared model selection rather than stripped heuristically. The Harness retains
-the original native ID for its probe and receives the same endpoint/provider
-tuple in `config.toml`. OpenClaw then separates the explicit provider once
-and carries it through thread start, resume, and turn requests. The admitted
-Configuration remains unchanged.
+to clone the admitted document and qualify model references, policy keys, and
+catalog IDs in the private Gateway ConfigMap. Full refs match declared selections;
+native IDs, including a `codex/` prefix, remain intact. The manifest and
+`config.toml` carry the endpoint/provider pair. OpenClaw separates the explicit
+provider once for thread start, resume, and turns; the Harness probe keeps the
+native ID. The admitted Configuration is unchanged.
 
 Dedicated Codex and dedicated OpenClaw must complete a bounded native
 authentication/model probe before their Harness becomes ready.
@@ -303,8 +284,6 @@ owns claim sizes, mount paths, StorageClass requirements, and final teardown.
   `pnpm test:files --test-name-pattern='dedicated replacement starts a candidate Gateway' -- tests/conformance/kubernetes-compute.test.mjs`.
 - Check embedded Gateway repair after a never-served unready predecessor:
   `pnpm test:files --test-name-pattern='never-served unready Gateway' -- tests/conformance/kubernetes-compute.test.mjs`.
-- Run real disposable-k3d Kubernetes coverage for both production topologies, exact identity and
-  model-key placement, authenticated dedicated transport, isolated networking, and active routing.
 - Run `node --test tests/integration/docker-compute-real.test.mjs` for real Docker Compose
   embedded and dedicated model turns, or
   `node --test tests/integration/harness-topology-k3d-real.test.mjs` for real Kubernetes
@@ -336,6 +315,10 @@ owns claim sizes, mount paths, StorageClass requirements, and final teardown.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-06 11:17: Reconciled endpoint flow with current namespace and provider provisioning; condensed repeated prose. (agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110 - b6dc6b87a461ad33374e133d15cc739d8e074fea)
+
+- 2026-10-05 11:36: Normalize runtime endpoints with the shared Driver validator; trim repeated topology narration. (agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110 - 9958ef0412565864efba7b13995536d7c2a51d22)
 
 - 2026-10-05 00:06: Add custom Codex Responses endpoint selection and explicit native-provider rendering while preserving admitted model IDs and Harness-only credentials. (authoring-run/4e4824a1-f107-44c2-90bf-00fe13ff650c - d269c6d03)
 

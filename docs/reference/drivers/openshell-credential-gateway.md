@@ -69,7 +69,9 @@ Sandboxes and reads attachment status. Allow both to reach the gateway.
 
 When omitted, `base_url` defaults to `https://api.openai.com/v1`. Set it to an
 HTTPS OpenAI-compatible endpoint ending in `/v1` to use a different service.
-Path prefixes such as `/api/v1` are supported; wildcard paths are rejected.
+Path prefixes such as `/api/v1` are supported. Wildcards, URL credentials,
+queries, and fragments are rejected with `400 INVALID_REQUEST` before Secret
+reads or persistence. The Driver and Compute share URL validation and normalization.
 Codex requires that endpoint to implement the OpenAI Responses API. The selected
 endpoint is part of the source configuration and cannot be changed by updating
 its Secret; register a new source to change it.
@@ -111,6 +113,12 @@ keeps the previous value until it restarts.
 `removeSource` deletes the owned provider and confirms that it is gone. When no
 provider using that endpoint profile remains, it also deletes the profile, because
 OpenShell cannot delete a Workspace that still holds profiles.
+
+An invalid persisted endpoint cannot identify an owned profile. If the gateway
+confirms that the source's provider is absent, deletion leaves all profiles alone
+and removes the OCC record after its registration fence. If a provider exists,
+status is `failed` and deletion refuses to guess its ownership. Unknown source
+types and gateway errors also remain failures, not evidence of absence.
 
 For a revision, `attachForRevision` returns each source's provider name. The
 OpenShell SandboxDriver appends those names to `SandboxSpec.providers`.
