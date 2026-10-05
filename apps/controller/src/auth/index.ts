@@ -161,7 +161,7 @@ import type {
   AdmittedCaller,
   AdmittedSession,
 } from "../admission/admission-verifier.ts";
-import { AdmissionFailure } from "../admission/admission-verifier.ts";
+import { AdmissionFailure, UNTRUSTED_ORIGIN_MESSAGE } from "../admission/admission-verifier.ts";
 import { RequestFailure, unstorableTextFailure } from "../http/errors.ts";
 import { betterAuthIssuer, validHttpBaseURL } from "./configuration.ts";
 
@@ -766,10 +766,18 @@ async function sendAuthEndpoint(
       reply.header("retry-after", String(error.retryAfterSeconds));
     }
     reply.status(failure.status).send({
-      // A malformed request names its offending field, as on every API route.
       error: {
         code: failure.code,
-        message: error instanceof RequestFailure ? error.message : failureMessage,
+        // A malformed request names its offending field, as on every API route. Every caller
+        // checks the Origin before it reads any credential, so naming the refused Origin
+        // reveals nothing about the session or password; keep it that way, because the
+        // endpoint's own message would misdirect a CLI user.
+        message:
+          error instanceof RequestFailure
+            ? error.message
+            : error instanceof AdmissionFailure && error.reason === "untrusted_origin"
+              ? UNTRUSTED_ORIGIN_MESSAGE
+              : failureMessage,
       },
       meta: { requestId: request.id },
     });
