@@ -45,6 +45,8 @@ spec:
               value: production
             - name: OCC_SLACK_PROXY_PORT
               value: {{ .Values.slackProxy.port | quote }}
+            - name: OCC_SLACK_PROXY_ALLOW_CLAWHUB
+              value: {{ .Values.slackProxy.allowClawHub | quote }}
           ports:
             - name: proxy
               containerPort: {{ .Values.slackProxy.port }}
@@ -121,7 +123,7 @@ spec:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
     - to:
-        # Slack rotates public endpoints; hostname authorization stays in the proxy.
+        # Approved services rotate endpoints; hostname authorization stays in the proxy.
         - ipBlock:
             cidr: 0.0.0.0/0
             except:

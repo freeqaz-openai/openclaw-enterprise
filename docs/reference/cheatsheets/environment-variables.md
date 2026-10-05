@@ -50,6 +50,7 @@ console uses the current origin and has no separate environment settings.
 - `OCC_GATEWAY_API_KEY_PATH` — API/worker absolute path to the private gateway service-key file for operator RPCs and dedicated node enrollment.
 - `OCC_CHANNEL_DIRECTORY_PROXY_URL` — Optional API-only HTTP(S) proxy endpoint for production Slack directory lookup and credential validation; set by Helm `slackProxy.enabled` or `api.channelDirectoryProxyUrl`.
 - `OCC_CHANNEL_DIRECTORY_MANAGED_PROXY_HOST` — Exact Kubernetes Service host accepted as a managed Slack directory proxy; set only by Helm `slackProxy.enabled`.
+- `OCC_SLACK_PROXY_ALLOW_CLAWHUB` — Managed proxy opt-in for the exact `clawhub.ai:443` destination; defaults to `false`, set by Helm `slackProxy.allowClawHub`. See the [proxy host policy](../drivers/slack-channel.md#enable-lookup-in-production).
 - `NODE_EXTRA_CA_CERTS` — Additional Node.js PEM trust bundle for a private OCC or gateway CA; read at process startup.
 
 ## PostgreSQL and migrations

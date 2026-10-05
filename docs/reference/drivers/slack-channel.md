@@ -56,7 +56,16 @@ lookup and credential validation need a proxy. With the recommended Helm setting
 - allows the proxy public IPv4 egress on TCP 443, excluding private and
   reserved ranges.
 
-The bundled proxy accepts HTTP `CONNECT` only for Slack hostnames on port 443.
+By default, the bundled proxy accepts HTTP `CONNECT` only for Slack hostnames on port 443.
+Operators can also enable `slackProxy.allowClawHub: true` to admit the exact
+`clawhub.ai` host on port 443. This lets dedicated gateways using the same proxy
+read ClawHub catalogs. The setting defaults to false; it does not admit ClawHub
+subdomains, unrelated download or dependency hosts, other ports, or private
+upstream addresses. Both the API and managed gateways share this host policy.
+Helm sets `OCC_SLACK_PROXY_ALLOW_CLAWHUB` on the proxy process; invalid non-boolean
+values fail chart validation or process startup. Changing this setting rolls
+the proxy, not Agent revisions. Existing tunnels may reconnect during rollout.
+
 The API accepts a DNS proxy URL only when Helm also sets the matching
 `OCC_CHANNEL_DIRECTORY_MANAGED_PROXY_HOST`; it rejects any other DNS proxy URL.
 

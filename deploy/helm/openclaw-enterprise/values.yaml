@@ -237,6 +237,9 @@ slackProxy:
   enabled: false
   serviceName: openclaw-enterprise-slack-proxy
   port: 3128
+  # Also admit the exact clawhub.ai HTTPS host for gateway catalog requests.
+  # Does not allow arbitrary plugin dependency or redirected download hosts.
+  allowClawHub: false
   resources:
     requests:
       cpu: 25m
