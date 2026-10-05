@@ -107,6 +107,7 @@ import {
 } from "../workspace-setup-runtime.ts";
 import { ComputeLifecycleDispatcher } from "../lifecycle-hooks.ts";
 import { nodeProgramArguments } from "../node-program.ts";
+import { codexGatewayModelConfiguration } from "../codex-model-configuration.ts";
 import { discoverHarnessModels } from "../model-discovery.ts";
 import { pollHarnessDeviceAuthorization, startHarnessDeviceAuthorization } from "../device-auth.ts";
 import {
@@ -372,6 +373,7 @@ export interface KubernetesComputeDriverOptions {
     readonly nodeSelector?: Readonly<Record<string, string>>;
     readonly gatewayNodeSelector?: Readonly<Record<string, string>>;
     readonly codexSeccompProfile?: string;
+    readonly codexOpenaiBaseUrl?: string;
     readonly channels?: {
       readonly proxyUrl: string;
       readonly managedProxy?: KubernetesWorkloadPeer & {
@@ -1885,8 +1887,12 @@ function requireNativeWorkerSandbox(
 function gatewayConfigurationDocument(
   revision: AgentRevision,
   nativeRuntime: NativeRuntimeSnapshot | undefined,
+  pluginRuntime?: PluginRuntimeSpec,
 ): OpenClawConfigurationDocument {
   if (nativeRuntime === undefined) {
+    if (pluginRuntime?.kind === "codex" && pluginRuntime.modelEndpoint !== undefined) {
+      return codexGatewayModelConfiguration(revision.configuration, pluginRuntime.modelEndpoint);
+    }
     return revision.configuration;
   }
   const cloudWorkers = asRecord(revision.configuration.cloudWorkers) ?? {};
@@ -2058,6 +2064,7 @@ export class KubernetesComputeDriver implements ComputeDriver {
           nodeSelector: { type: "object", additionalProperties: { type: "string" } },
           gatewayNodeSelector: { type: "object", additionalProperties: { type: "string" } },
           codexSeccompProfile: { type: "string", minLength: 1 },
+          codexOpenaiBaseUrl: { type: "string", minLength: 1 },
           channels: {
             type: "object",
             required: ["proxyUrl"],
@@ -2308,6 +2315,27 @@ export class KubernetesComputeDriver implements ComputeDriver {
         throw new ConfigurationFailure(
           "Native OpenClaw session capacity must be an integer between 1 and 1024.",
         );
+      }
+      if (options.runtime.codexOpenaiBaseUrl !== undefined) {
+        let endpoint: URL;
+        try {
+          endpoint = new URL(options.runtime.codexOpenaiBaseUrl);
+        } catch {
+          throw new ConfigurationFailure("Codex model endpoint must be an HTTPS API URL.");
+        }
+        if (
+          endpoint.protocol !== "https:" ||
+          endpoint.username !== "" ||
+          endpoint.password !== "" ||
+          endpoint.search !== "" ||
+          endpoint.hash !== "" ||
+          !endpoint.pathname.replace(/\/$/u, "").endsWith("/v1") ||
+          endpoint.pathname.includes("*")
+        ) {
+          throw new ConfigurationFailure(
+            "Codex model endpoint requires HTTPS and a path ending in /v1 without credentials, wildcards, query, or fragment.",
+          );
+        }
       }
       if (options.runtime.codexSeccompProfile !== undefined) {
         validateCodexSeccompProfile(options.runtime.codexSeccompProfile);
@@ -4008,7 +4036,6 @@ export class KubernetesComputeDriver implements ComputeDriver {
     await this.prepareRevisionStage("workspace_setup", () =>
       this.deliverWorkspaceSetup(revision, workspaceSetup, namespace),
     );
-    const document = JSON.stringify(gatewayConfigurationDocument(admittedRevision, nativeRuntime));
     const configuration = await this.prepareRevisionStage("gateway_configuration", async () =>
       this.gatewayConfiguration(
         admittedRevision,
@@ -4105,10 +4132,14 @@ export class KubernetesComputeDriver implements ComputeDriver {
         repositoryConsumer,
         repositoryMaterial,
       ),
+      harnessAuth.credentialSource?.config.base_url,
     );
     const hasEnabledPluginSelections =
       pluginRuntime !== undefined &&
       Object.values(pluginRuntime.runtime.selections).some((selection) => selection.enabled);
+    const document = JSON.stringify(
+      gatewayConfigurationDocument(admittedRevision, nativeRuntime, pluginRuntime?.runtime),
+    );
     const pluginStatusContainer =
       sandboxDriver?.provisionHarness === undefined &&
       pluginRuntime !== undefined &&
@@ -4865,6 +4896,7 @@ export class KubernetesComputeDriver implements ComputeDriver {
           repositoryConsumer,
           repositoryMaterial,
         ),
+        harnessAuth.credentialSource?.config.base_url,
       );
       if (
         currentRevisionId !== revision.id ||
@@ -4968,6 +5000,7 @@ export class KubernetesComputeDriver implements ComputeDriver {
         repositoryConsumer,
         repositoryMaterial,
       ),
+      harnessAuth.credentialSource?.config.base_url,
     );
     const revisionName = `${agentName}-rev-${sha256Hex(revision.id, 12)}`;
     const configuration = this.gatewayConfiguration(
@@ -10065,10 +10098,23 @@ chmodSync(${JSON.stringify(nodeStatePath)}, 0o700);`;
   private pluginRuntimeSnapshot(
     revision: AgentRevision,
     repositoryBrokerNetworkPolicy?: CodexRepositoryBrokerNetworkPolicy,
+    openaiBaseUrl?: string,
   ): PluginRuntimeSnapshot | undefined {
+    if (
+      openaiBaseUrl === undefined &&
+      revision.harness.id === "codex" &&
+      revision.harness.mode === "dedicated" &&
+      revision.harnessAuth?.method === "api_key"
+    ) {
+      openaiBaseUrl = this.options.runtime?.codexOpenaiBaseUrl?.replace(/\/$/u, "");
+    }
     let runtime: PluginRuntimeSpec | undefined;
     try {
-      runtime = pluginRuntimeSpecForRevision(revision, repositoryBrokerNetworkPolicy);
+      runtime = pluginRuntimeSpecForRevision(
+        revision,
+        repositoryBrokerNetworkPolicy,
+        openaiBaseUrl,
+      );
     } catch (error) {
       throw new ConfigurationFailure(
         error instanceof Error

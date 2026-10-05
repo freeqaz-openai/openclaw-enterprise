@@ -56,6 +56,7 @@ const providerModel = (process.env.OCC_TEST_OPENAI_MODEL ?? defaultAgentModel).r
   /^(?:openai|codex)\//,
   "",
 );
+const openShellModelBaseUrl = process.env.OCC_TEST_OPENSHELL_MODEL_BASE_URL?.trim() || undefined;
 const selected =
   process.env.OCC_TEST_OPENSHELL_K3D_REAL === "1" ||
   [
@@ -70,6 +71,7 @@ const selected =
     openShellHelmPath,
     openShellHelmChart,
     openShellWorkspaceHelmChart,
+    openShellModelBaseUrl,
   ].some(Boolean);
 const requiresOpenShellK3d = {
   skip: selected
@@ -2096,6 +2098,7 @@ async function prepareProductionInstallation(
   const modelSource = await request("POST", `/namespaces/${namespaceId}/credential-sources`, {
     name: `openshell-openai-${randomUUID()}`,
     type: "openai",
+    ...(openShellModelBaseUrl === undefined ? {} : { config: { base_url: openShellModelBaseUrl } }),
     secrets: { api_key: modelSecret.data.ref },
   });
   assert.equal(modelSource.status, 201, JSON.stringify(modelSource.error));

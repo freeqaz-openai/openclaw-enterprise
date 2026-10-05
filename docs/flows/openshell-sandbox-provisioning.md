@@ -187,6 +187,18 @@ adds only its SHA-256 verifier as `APP_TOKEN_SHA`. It turns the admitted
 plugin-runtime snapshot into `runtime.json` and `config.toml` workload-file
 requirements and removes their ConfigMap paths from the remaining environment.
 
+The OpenShell credential gateway derives an endpoint-specific provider profile
+from the source's immutable `config.base_url`, defaulting to OpenAI `/v1`. For
+custom services, the base path may include a prefix such as `/api/v1`; the profile
+binds credentials to that complete base path followed by `/**`. Wildcard base
+paths are rejected. Non-Codex consumers retain the default OpenAI endpoint limit;
+`attachForRevision` rejects a custom endpoint for those revisions before creating
+a Sandbox. For Codex, Compute passes the source endpoint into the
+plugin-runtime snapshot. In
+`apps/controller/src/drivers/compute/plugin-runtime.ts:codexConfigurationToml`,
+a root `model_provider` selection names an OpenAI-compatible provider table
+with the endpoint and HTTPS Responses transport.
+
 ### 3. Validate and serialize the Sandbox
 
 `apps/controller/src/drivers/sandbox/openshell.ts:provisionHarness`
@@ -366,6 +378,8 @@ networking. Native OpenClaw remains a separate verification-only path.
 ## Changelog
 
 - 2026-10-05 16:17: Documented version-fenced workspace-node setup renewal through the revision provider and supervisor refresh. (authoring-run/4f3e6ccd-a967-48c8-9d5d-f29a6d338d7d - fd9a082e2587432bde6282748a82e3025a64fd1a)
+
+- 2026-10-05 00:06: Bind immutable credential-source endpoints to provider profiles and Codex runtime configuration while retaining existing default endpoint limits for other consumers. (authoring-run/4e4824a1-f107-44c2-90bf-00fe13ff650c - d269c6d03)
 
 - 2026-10-05 12:50: Removed repeated setup and wire-contract detail while preserving the current OpenShell provisioning sequence and moved older entries to the history page. (authoring-run/fd7f6cdb-1d1d-40d5-8d4a-d6d80cd946e7 - 4b5afe0cb653f7dd99fccdb2e3432cbf60e6a03e)
 

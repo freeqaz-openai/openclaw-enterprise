@@ -122,9 +122,24 @@ The helper prepares disposable k3d, isolated PostgreSQL, and gateway/Codex image
 Start Docker or Podman's API socket (Podman Machine on macOS), then run:
 
 ```sh
-export OCC_TEST_OPENAI_MODEL=gpt-6-astra
-./scripts/k3d
+./scripts/k3d --model-id gpt-6-astra
 ```
+
+For a custom Codex Responses endpoint, use `--base-url` and the native
+`--model-id` on either `test` or the default demo command:
+
+```sh
+./scripts/k3d test --harness codex \
+  --base-url https://openrouter.ai/api/v1 --model-id z-ai/glm-5.3-flash
+./scripts/k3d --base-url https://openrouter.ai/api/v1 --model-id z-ai/glm-5.3-flash
+```
+
+Set `OPENAI_API_KEY` privately to the endpoint's key. Flags override
+`OCC_TEST_CODEX_OPENAI_BASE_URL` and `OCC_TEST_OPENAI_MODEL`, including prepared
+environment records; environment-only use remains supported. Model IDs retain
+their full namespace. These flags select the Codex path without OpenShell and
+are not accepted by inspection or cleanup commands. After source changes, use
+fresh helper state so both images are rebuilt; reusing state retains its images.
 
 When `OPENAI_API_KEY` is unset, the interactive `demo` command prompts for it
 without echoing the value; `test` requires the variable and `reset` does not. A
@@ -289,6 +304,13 @@ recovery. Unsupported images fail.
 
 ### Transcript persistence
 
+When `OCC_TEST_CODEX_OPENAI_BASE_URL` selects a custom endpoint, the dedicated
+Gateway model-turn case checks Codex's recorded native provider and complete model
+ID. The retained-thread case repeats those checks after Gateway replacement,
+exercising stock OpenClaw's new-thread, resume, and subsequent-turn resolution.
+Use a namespaced `OCC_TEST_OPENAI_MODEL` to protect namespace preservation. A
+direct Pod-loopback Codex turn does not exercise that Gateway translation.
+
 Both Harness topologies require SQLite transcripts. Persistence cases query
 `session_nodes` and `transcript_events`, then verify conversation history and media
 after gateway Pod replacement. Images with JSONL transcripts cannot exercise
@@ -359,6 +381,7 @@ For dedicated Codex coverage, a model override must support Codex custom tools.
 | `OCC_TEST_DATABASE_URL`                     | Migrated disposable loopback database named `openclaw_k8s_*`; the ordinary development database fails.                                                                                                     |
 | `OPENAI_API_KEY`                            | Existing authorized provider credential for real embedded and dedicated model turns.                                                                                                                       |
 | `OCC_TEST_OPENAI_MODEL`                     | Authorized provider model; defaults to `gpt-6-astra`.                                                                                                                                                      |
+| `OCC_TEST_CODEX_OPENAI_BASE_URL`            | Optional HTTPS Responses endpoint for dedicated Codex API-key tests; applied through `runtime.codexOpenaiBaseUrl`. Keep the native Codex provider at its fail-closed loopback URL.                         |
 
 The separate
 [`harness-topology-k3d-routing-real.test.mjs`](../../tests/integration/harness-topology-k3d-routing-real.test.mjs)

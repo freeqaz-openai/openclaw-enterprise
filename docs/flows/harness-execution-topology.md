@@ -1,7 +1,7 @@
 ---
 created: 2026-08-21
-updated: 2026-10-03
-last_updated_session: 01a0fe72-58b2-7cc3-b770-7310f5401deb
+updated: 2026-10-05
+last_updated_session: authoring-run/4e4824a1-f107-44c2-90bf-00fe13ff650c
 ---
 
 # Harness Execution Topology Flow
@@ -190,6 +190,30 @@ Both PVCs survive this downtime window; a failed candidate is recovered by retry
 or a new revision. A newer exclusive revision supersedes old reconciliation and
 maintenance, with no automatic rollback; see
 [production revision stages](../reference/drivers/compute.md#production-revision-stages).
+For dedicated Codex API-key authentication, Kubernetes Compute selects the
+bound credential source's endpoint first, then its optional
+`runtime.codexOpenaiBaseUrl`. `pluginRuntimeSnapshot` in
+`apps/controller/src/drivers/compute/kubernetes/index.ts` passes that endpoint to
+`pluginRuntimeConfigMapData` in `apps/controller/src/drivers/compute/plugin-runtime.ts`.
+The generated Codex config and manifest select HTTPS Responses streaming for an
+explicit compatible endpoint. `probeCodexAuthentication` in
+`apps/controller/src/drivers/compute/kubernetes/runtime-entrypoints.ts` carries
+that endpoint through CLI overrides because its probe ignores user configuration.
+Account login modes and other Harnesses retain their existing endpoints; model
+credentials remain exclusively in the Harness Pod.
+The runtime manifest carries the endpoint and its native `modelProvider` together.
+`gatewayConfigurationDocument` in Kubernetes Compute calls
+`apps/controller/src/drivers/compute/codex-model-configuration.ts:codexGatewayModelConfiguration`
+only for a dedicated Codex custom endpoint. It clones the admitted document and
+qualifies primary/fallback references, selectable policy keys, and catalog IDs
+with the endpoint provider in the private Gateway ConfigMap. A native ID beginning
+with `codex/` remains part of the ID; full catalog refs are matched against their
+declared model selection rather than stripped heuristically. The Harness retains
+the original native ID for its probe and receives the same endpoint/provider
+tuple in `config.toml`. OpenClaw then separates the explicit provider once
+and carries it through thread start, resume, and turn requests. The admitted
+Configuration remains unchanged.
+
 Dedicated Codex and dedicated OpenClaw must complete a bounded native
 authentication/model probe before their Harness becomes ready.
 While first-deploy [workspace setup](workspace-files.md) is pending, embedded
@@ -312,6 +336,8 @@ owns claim sizes, mount paths, StorageClass requirements, and final teardown.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-05 00:06: Add custom Codex Responses endpoint selection and explicit native-provider rendering while preserving admitted model IDs and Harness-only credentials. (authoring-run/4e4824a1-f107-44c2-90bf-00fe13ff650c - d269c6d03)
 
 - 2026-10-03 16:02: Run configured development API and worker Compute preflight before admitting work. (01a0fe72-58b2-7cc3-b770-7310f5401deb - c04093189f2ba6240f8dc431847c2f487afd11de)
 

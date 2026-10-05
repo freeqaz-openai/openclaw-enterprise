@@ -885,7 +885,7 @@ test("activation refuses a missing or foreign workspace node before changing the
 // With `clock` ({ now }), enrollment waits are simulated on that fake clock: an
 // observation advances it by its whole wait, or to `state.pairAtMs` if the node
 // pairs within the wait, and never sleeps.
-function dedicatedFirstDeployFixture({ statusProxy = true, clock } = {}) {
+function dedicatedFirstDeployFixture({ statusProxy = true, clock, modelEndpoint } = {}) {
   const state = {
     setupCalls: 0,
     connected: false,
@@ -908,7 +908,11 @@ function dedicatedFirstDeployFixture({ statusProxy = true, clock } = {}) {
   };
   const driver = new KubernetesComputeDriver(
     routedOptions({
-      runtime: { transportSecretPrefix: "transport", gatewayStorageClassName: "local-path" },
+      runtime: {
+        transportSecretPrefix: "transport",
+        gatewayStorageClassName: "local-path",
+        ...(modelEndpoint === undefined ? {} : { codexOpenaiBaseUrl: modelEndpoint }),
+      },
       // The API server proxy can reach private status, so activation reads the
       // node OpenClaw applied.
       ...(statusProxy ? { network: { pluginStatusProxySourceCidrs: ["192.0.2.20/32"] } } : {}),
@@ -1256,6 +1260,98 @@ function dedicatedFirstDeployFixture({ statusProxy = true, clock } = {}) {
     markReady,
   };
 }
+
+test("custom Codex endpoints compile explicit providers without changing the admitted model IDs", async () => {
+  for (const sourceProvider of ["codex", "openai"]) {
+    const fixture = dedicatedFirstDeployFixture({
+      modelEndpoint: "https://models.example.test/api/v1",
+    });
+    const primary = `${sourceProvider}/vendor/organization/model`;
+    const fallback = `${sourceProvider}/codex/native`;
+    const plain = `${sourceProvider}/plain-model`;
+    const settings = {
+      model: { primary, fallbacks: [fallback, plain] },
+      models: {
+        [primary]: { agentRuntime: { id: "codex" }, alias: "primary" },
+        [fallback]: { agentRuntime: { id: "codex" } },
+        [plain]: { agentRuntime: { id: "codex" } },
+        [`${sourceProvider}/*`]: { agentRuntime: { id: "codex" } },
+      },
+    };
+    fixture.revision.configuration = admitLoggingConfiguration(
+      {
+        ...fixture.revision.configuration,
+        agents: {
+          defaults: {
+            ...structuredClone(settings),
+            model: sourceProvider === "openai" ? primary : structuredClone(settings.model),
+          },
+          entries: { main: structuredClone(settings) },
+        },
+        models: {
+          providers: {
+            [sourceProvider]: {
+              agentRuntime: { id: "codex" },
+              api: "openai-responses",
+              baseUrl: "http://127.0.0.1:9",
+              models: [
+                { id: "vendor/organization/model", name: "Primary model", contextWindow: 32000 },
+                // Full OCE catalog refs must not strip the native "codex/" namespace.
+                { id: fallback, name: "Fallback model" },
+                { id: "plain-model", name: "Plain model" },
+              ],
+            },
+          },
+        },
+      },
+      "info",
+    );
+    const admitted = structuredClone(fixture.revision.configuration);
+    await fixture.prepare();
+    const snapshot = [...fixture.objects.values()].find(
+      (object) => object.kind === "ConfigMap" && object.data?.["openclaw.json"] !== undefined,
+    );
+    assert.ok(snapshot);
+    const rendered = JSON.parse(snapshot.data["openclaw.json"]);
+    const qualified = "codex/openai-compatible/";
+    const expectedSelection = {
+      primary: `${qualified}vendor/organization/model`,
+      fallbacks: [`${qualified}codex/native`, `${qualified}plain-model`],
+    };
+    assert.deepEqual(
+      rendered.agents.defaults.model,
+      sourceProvider === "openai" ? expectedSelection.primary : expectedSelection,
+    );
+    assert.deepEqual(rendered.agents.entries.main.model, expectedSelection);
+    for (const actual of [rendered.agents.defaults, rendered.agents.entries.main]) {
+      assert.deepEqual(Object.keys(actual.models), [
+        `${qualified}vendor/organization/model`,
+        `${qualified}codex/native`,
+        `${qualified}plain-model`,
+        `${qualified}*`,
+      ]);
+      assert.equal(actual.models[`${qualified}vendor/organization/model`].alias, "primary");
+    }
+    assert.deepEqual(rendered.models.providers.codex.models, [
+      {
+        id: "openai-compatible/vendor/organization/model",
+        name: "Primary model",
+        contextWindow: 32000,
+      },
+      { id: "openai-compatible/codex/native", name: "Fallback model" },
+      { id: "openai-compatible/plain-model", name: "Plain model" },
+    ]);
+    assert.deepEqual(fixture.revision.configuration, admitted);
+    const runtime = [...fixture.objects.values()].find(
+      (object) => object.kind === "ConfigMap" && object.data?.["runtime.json"] !== undefined,
+    );
+    assert.ok(runtime);
+    assert.deepEqual(JSON.parse(runtime.data["runtime.json"]).modelEndpoint, {
+      baseUrl: "https://models.example.test/api/v1",
+      modelProvider: "openai-compatible",
+    });
+  }
+});
 
 // The node wiring a Deployment-backed Codex Harness renders from its first start.
 function harnessNodeSetup(template) {
@@ -4000,6 +4096,37 @@ test("the canonical Kubernetes runtime validates channel proxy configuration", (
     assert.throws(
       () => createKubernetesComputeDriver(options({ runtime: { ...runtime, channels } })),
       /Managed channel proxy/i,
+    );
+  }
+});
+
+test("the canonical Kubernetes runtime validates the dedicated Codex model endpoint", () => {
+  const runtime = { transportSecretPrefix: "transport", gatewayStorageClassName: "local-path" };
+  for (const codexOpenaiBaseUrl of [
+    "https://models.example.test/v1",
+    "https://models.example.test/api/v1/",
+  ]) {
+    assert.doesNotThrow(() =>
+      createKubernetesComputeDriver(options({ runtime: { ...runtime, codexOpenaiBaseUrl } })),
+    );
+  }
+  for (const codexOpenaiBaseUrl of [
+    "not-a-url",
+    "http://models.example.test/v1",
+    syntheticCredentialUrl({
+      username: "user",
+      password: "password",
+      host: "models.example.test",
+      pathname: "/v1",
+    }),
+    "https://models.example.test/v2",
+    "https://models.example.test/*/v1",
+    "https://models.example.test/v1?key=fixture",
+    "https://models.example.test/v1#fragment",
+  ]) {
+    assert.throws(
+      () => createKubernetesComputeDriver(options({ runtime: { ...runtime, codexOpenaiBaseUrl } })),
+      /Codex model endpoint/,
     );
   }
 });
