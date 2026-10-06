@@ -311,11 +311,18 @@ async function prepareTogether(operations, concurrency = operations.length) {
   return results;
 }
 
+// The Actions runner refuses NODE_OPTIONS in $GITHUB_ENV, compared without case, and logs an
+// ##[error] for it. A lane's own env, such as the checks lanes' heap limit, needs no export:
+// run-tests.mjs sets it on each test process.
+const GITHUB_ENV_REFUSED = new Set(["NODE_OPTIONS"]);
+
 async function appendGithubEnv(path, env) {
   if (!path) {
     return;
   }
-  const lines = Object.entries(env).map(([name, value]) => `${name}=${value}`);
+  const lines = Object.entries(env)
+    .filter(([name]) => !GITHUB_ENV_REFUSED.has(name.toUpperCase()))
+    .map(([name, value]) => `${name}=${value}`);
   if (lines.length === 0) {
     return;
   }
@@ -1801,10 +1808,11 @@ async function prepareK3dRuntimeImages(
   }
 }
 
-async function prepareRuntimeSmokeCodexSeccompProfile(statePath, state, env) {
-  const cluster = await timedPreparation(state.lane, "k3d-create", () =>
-    ensureK3dCluster(statePath, state),
-  );
+// The CI lane passes a cluster it created alongside the runtime image build.
+async function prepareRuntimeSmokeCodexSeccompProfile(statePath, state, env, created) {
+  const cluster =
+    created ??
+    (await timedPreparation(state.lane, "k3d-create", () => ensureK3dCluster(statePath, state)));
   const runtimeImage = await timedPreparation(state.lane, "runtime-image-import", () =>
     registerImageInK3d(
       statePath,
@@ -1999,22 +2007,34 @@ async function prepareLane({ lane, statePath }) {
       );
       break;
     case "images-runtime-startup":
-    case "images-runtime-startup-2":
+    case "images-runtime-startup-2": {
       // Runtime image smoke tests run apart from packaging, in two lanes, to
       // shorten CI wall time. Only the lane whose tests run the Codex sandbox
-      // sets codexSeccomp; the other skips the k3d cluster it needs.
-      Object.assign(
-        env,
-        (
-          await timedPreparation(name, "runtime-image-build", () =>
-            buildRuntimeImages(resolvedStatePath, state, { runtime: true }),
-          )
-        ).env,
+      // sets codexSeccomp; the other skips the k3d cluster it needs. The
+      // cluster needs no image, so it is created while the image builds.
+      const codexSeccomp = lanePrepare(name).codexSeccomp;
+      const [built, cluster] = await timedPreparation(name, "runtime-image-build-cluster", () =>
+        prepareTogether([
+          () =>
+            timedPreparation(name, "runtime-image-build", () =>
+              buildRuntimeImages(resolvedStatePath, state, { runtime: true }),
+            ),
+          ...(codexSeccomp
+            ? [
+                () =>
+                  timedPreparation(name, "k3d-create", () =>
+                    ensureK3dCluster(resolvedStatePath, state),
+                  ),
+              ]
+            : []),
+        ]),
       );
-      if (lanePrepare(name).codexSeccomp) {
-        await prepareRuntimeSmokeCodexSeccompProfile(resolvedStatePath, state, env);
+      Object.assign(env, built.env);
+      if (codexSeccomp) {
+        await prepareRuntimeSmokeCodexSeccompProfile(resolvedStatePath, state, env, cluster);
       }
       break;
+    }
     case "images-packaging":
       await commandAvailable(process.env.OCC_HELM_BIN ?? "helm", ["version", "--short"]);
       await commandAvailable(process.env.OCC_YQ_BIN ?? "yq", ["--version"]);

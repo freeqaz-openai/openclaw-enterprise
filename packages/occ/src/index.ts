@@ -776,6 +776,26 @@ function fittedList(prefix: string, items: readonly string[], suffix: string): s
   return render(shown);
 }
 
+/**
+ * The provisioning status message for a worker failure. Only the shared duplicate-name text and
+ * the plugin-policy and native-support refusals pass through; other error messages stay
+ * internal. Those refusals name only Installation configuration and the work's own plugin
+ * selection, and HTTP returns them verbatim. The status contract caps `error.message` at 256
+ * characters.
+ */
+function provisioningFailureMessage(code: string, error: unknown): string {
+  if (code === "PROVISIONING_REJECTED") {
+    if (error instanceof ResourceStateConflictError && error.message === AGENT_NAME_CONFLICT) {
+      return AGENT_NAME_CONFLICT;
+    }
+    if (error instanceof PluginPolicyValidationError || error instanceof NativeWorkerSupportError) {
+      const characters = Array.from(error.message);
+      return characters.length <= 256 ? error.message : `${characters.slice(0, 255).join("")}…`;
+    }
+  }
+  return "Agent provisioning could not complete.";
+}
+
 // At most 200 characters counted as code points, as the API contract (JSON Schema
 // maxLength) and PostgreSQL char_length count them, not UTF-16 code units.
 function validName(value: unknown): value is string {
@@ -794,6 +814,12 @@ function frozenValues(value: unknown): Readonly<OpenClawConfigurationDocument> {
   }
   return immutableCopy(value as OpenClawConfigurationDocument);
 }
+
+/** Product names for Harness ids that appear in caller-facing refusals. */
+const HARNESS_DISPLAY_NAMES: Readonly<Record<string, string>> = Object.freeze({
+  codex: "Codex",
+  openclaw: "OpenClaw",
+});
 
 function validExecutionMode(value: unknown): value is HarnessExecutionMode {
   return value === "embedded" || value === "dedicated";
@@ -2066,6 +2092,7 @@ export class OpenClawController {
           "Provisioning cannot retry after cancellation or deployment handoff.",
         );
       }
+      // Full admission, including the plugin policy that the status read skips.
       await this.authorizeProvisioningRecord(state, principalId, record);
       if (record.status === "queued" || record.status === "running") {
         return Object.freeze({ provisioning: provisioningProgress(record, observed) });
@@ -2208,7 +2235,11 @@ export class OpenClawController {
           error instanceof ResourceConflictError ||
           error instanceof AuthorizationDeniedError ||
           error instanceof AgentDeletingError ||
-          error instanceof NamespaceNotReadyError)
+          error instanceof NamespaceNotReadyError ||
+          // An Installation change (Plugin Driver, runtime image) refuses the stored plan
+          // the same way on every attempt, as HTTP retry does with a 400.
+          error instanceof PluginPolicyValidationError ||
+          error instanceof NativeWorkerSupportError)
       ) {
         code = "PROVISIONING_REJECTED";
       }
@@ -2218,13 +2249,7 @@ export class OpenClawController {
           : "permanent";
       const authorizationDenied =
         error instanceof AuthorizationDeniedError && !(error instanceof DependencyUnavailableError);
-      // Only the shared duplicate-name text passes through; other error messages stay internal.
-      const message =
-        code === "PROVISIONING_REJECTED" &&
-        error instanceof ResourceStateConflictError &&
-        error.message === AGENT_NAME_CONFLICT
-          ? AGENT_NAME_CONFLICT
-          : "Agent provisioning could not complete.";
+      const message = provisioningFailureMessage(code, error);
       await this.mutate(async (state) => {
         const current = await state.provisioning.findByWorkId(claim.idempotencyKey);
         if (current === undefined) {
@@ -4665,10 +4690,12 @@ export class OpenClawController {
     signal?: AbortSignal,
   ): Promise<ChannelDirectoryResult> {
     const ids = input.ids;
+    // Lengths count code points, as the API contract's JSON Schema maxLength does.
+    const characters = (value: string): number => Array.from(value).length;
     const bounded = (value: unknown, max: number, allowEmpty = false): value is string =>
       typeof value === "string" &&
       (allowEmpty || value.length > 0) &&
-      value.length <= max &&
+      characters(value) <= max &&
       !value.includes("\u0000");
     if (
       !bounded(input.secretId, 200) ||
@@ -4683,7 +4710,7 @@ export class OpenClawController {
             (id) =>
               typeof id !== "string" ||
               id.length === 0 ||
-              id.length > 200 ||
+              characters(id) > 200 ||
               hasControlCharacter(id),
           ) ||
           new Set(ids).size !== ids.length ||
@@ -5348,6 +5375,7 @@ export class OpenClawController {
       this.validatePluginPolicies(
         plugins ?? agent.plugins,
         pluginApprovers === null ? undefined : (pluginApprovers ?? agent.pluginApprovers),
+        plugins === undefined ? "stored" : "request",
       );
       const updated = await state.agents.updateConfiguration(
         namespace.id,
@@ -5550,6 +5578,17 @@ export class OpenClawController {
       }
       const configuredHarnessId = resolveConfiguredHarnessId(configuration.values);
       const approvedHarness = resolveHarness(configuredHarnessId, lockedAgent.executionMode);
+      const otherMode = lockedAgent.executionMode === "dedicated" ? "embedded" : "dedicated";
+      if (
+        approvedHarness === undefined &&
+        resolveHarness(configuredHarnessId, otherMode)?.id === configuredHarnessId
+      ) {
+        // A Harness/mode mismatch is a request the caller can fix, not a missing dependency.
+        const harnessName = HARNESS_DISPLAY_NAMES[configuredHarnessId] ?? configuredHarnessId;
+        throw new ConfigurationHarnessError(
+          `The Configuration selects the ${harnessName} Harness, which needs ${otherMode} execution; this Agent uses ${lockedAgent.executionMode} execution. Change the Agent's execution mode or its Configuration.`,
+        );
+      }
       if (
         approvedHarness === undefined ||
         !isNonEmptyString(approvedHarness.id) ||
@@ -5640,7 +5679,11 @@ export class OpenClawController {
           ? undefined
           : (() => {
               const driver = this.pluginDriver();
-              driver.validatePolicies(lockedAgent.plugins, lockedAgent.pluginApprovers);
+              this.validatePluginPolicies(
+                lockedAgent.plugins,
+                lockedAgent.pluginApprovers,
+                "stored",
+              );
               return immutableCopy({
                 driver: { id: driver.id, implementation: driver.implementation },
                 plugins: lockedAgent.plugins,
@@ -6715,6 +6758,7 @@ export class OpenClawController {
     state: PlatformUnitOfWork,
     principalId: string,
     record: Readonly<AgentProvisioningRecord>,
+    { statusRead = false }: { readonly statusRead?: boolean } = {},
   ): Promise<void> {
     const namespaceId = record.namespaceId;
     await this.authorizeProvisioningRequest(principalId, namespaceId);
@@ -6826,10 +6870,15 @@ export class OpenClawController {
         "The configured model, authentication, or channel bindings cannot be provisioned.",
       );
     }
-    this.validatePluginPolicies(
-      normalizeAgentPlugins(record.plan.plugins as PluginDesiredState | undefined),
-      normalizeAgentPluginApprovers(record.plan.pluginApprovers as PluginApprovers | undefined),
-    );
+    // Plugin policy is admission for writes (replay, retry, the worker). A status read reports
+    // the stored work, so an Installation Plugin Driver switch does not turn it into a 400.
+    if (!statusRead) {
+      this.validatePluginPolicies(
+        normalizeAgentPlugins(record.plan.plugins as PluginDesiredState | undefined),
+        normalizeAgentPluginApprovers(record.plan.pluginApprovers as PluginApprovers | undefined),
+        "stored",
+      );
+    }
     if (agent !== undefined) {
       this.admitRepositoryCredentials(
         agent,
@@ -6861,7 +6910,8 @@ export class OpenClawController {
     if (found.record.actorId !== principalId) {
       throw new AuthorizationDeniedError("Only the initiating actor can read provisioning status.");
     }
-    await this.authorizeProvisioningRecord(state, principalId, found.record);
+    // Retry repeats the full check, plugin policy included, after its lifecycle checks.
+    await this.authorizeProvisioningRecord(state, principalId, found.record, { statusRead: true });
     return found;
   }
 
@@ -8251,12 +8301,21 @@ export class OpenClawController {
   private validatePluginPolicies(
     plugins: PluginDesiredState | undefined,
     pluginApprovers?: PluginApprovers,
+    source: "request" | "stored" = "request",
   ): void {
     if (
       (plugins !== undefined && Object.keys(plugins).length > 0) ||
       (pluginApprovers !== undefined && pluginApprovers.length > 0)
     ) {
-      this.pluginDriver().validatePolicies(plugins ?? {}, pluginApprovers);
+      try {
+        this.pluginDriver().validatePolicies(plugins ?? {}, pluginApprovers);
+      } catch (error) {
+        // Stored selections are not the caller's request body: keep the message, drop the path.
+        if (source === "stored" && error instanceof PluginPolicyValidationError) {
+          throw error.withoutRequestPath();
+        }
+        throw error;
+      }
     }
   }
 

@@ -11,10 +11,7 @@ import {
   loadStartupConfigurationSnapshot,
 } from "../../apps/controller/src/composition/installation-config.ts";
 import { DEVELOPMENT_HARNESS_DESCRIPTOR } from "../../apps/controller/src/composition/production-harness.ts";
-import {
-  kubernetesNamespaceName,
-  kubernetesGatewayNamespaceName,
-} from "../../apps/controller/src/drivers/compute/kubernetes/index.ts";
+import { kubernetesNamespaceName } from "../../apps/controller/src/drivers/compute/kubernetes/index.ts";
 import { createControllerWorker } from "../../apps/controller/src/worker.ts";
 import { admitLoggingConfiguration } from "../../packages/contracts/src/index.ts";
 import { createHarnessConfiguration } from "../helpers/harness-configuration.mjs";
@@ -484,7 +481,7 @@ test("production embedded replacements preserve their active Service across fail
   const { computeDriver } = drivers;
   // This worker activation unit uses managed placement without claiming live Kubernetes discovery.
   t.mock.method(computeDriver, "resolveNamespace", async (namespaceId) => ({
-    name: kubernetesNamespaceName(namespaceId),
+    name: { name: kubernetesNamespaceName(namespaceId), plane: "execution" },
     external: false,
   }));
   const pool = new pg.Pool({ connectionString: "postgresql://127.0.0.1:1/occ" });
@@ -538,7 +535,7 @@ test("production embedded replacements preserve their active Service across fail
     harnessAuth: {
       ...candidate.harnessAuth,
       backendRef: {
-        namespaceName: kubernetesGatewayNamespaceName(namespaceId),
+        namespaceName: kubernetesNamespaceName(namespaceId),
         name: "model-key",
         key: "value",
         uid: "model-key-uid",
@@ -657,7 +654,7 @@ test("production embedded replacements preserve their active Service across fail
     true,
     servicePrincipalId,
     computeDriver.harnessAuthForRevision(candidate, authContext, {
-      name: kubernetesGatewayNamespaceName(namespaceId),
+      name: kubernetesNamespaceName(namespaceId),
       plane: "control",
     }),
   );
@@ -706,7 +703,7 @@ test("startup accepts actual block-style YAML instead of requiring JSON", async 
   assert.equal(loaded.installation.occ.cluster, "production-west");
 });
 
-test("production requires one YAML while development may start without a ConfigurationDriver", async () => {
+test("production requires one YAML while development may start without a ConfigurationDriver", async (t) => {
   await assert.rejects(
     loadInstallationConfiguration({ mode: "production", environment: {} }),
     /OCC_CONFIG_PATH/,
@@ -715,6 +712,25 @@ test("production requires one YAML while development may start without a Configu
     await loadInstallationConfiguration({ mode: "development", environment: {} }),
     undefined,
   );
+  // Unusable paths and unparsable files get fixed messages that never echo the path or the
+  // filesystem or parser error.
+  const invalidYaml = await fixture(t);
+  await writeFile(invalidYaml, "drivers: [\n", "utf8");
+  for (const [path, message] of [
+    [" ", "OCC_CONFIG_PATH must identify the Installation startup YAML."],
+    [
+      "relative/installation.yaml",
+      "OCC_CONFIG_PATH must identify an absolute Installation startup YAML path.",
+    ],
+    [`${invalidYaml}.missing`, "The configured Installation startup YAML is unavailable."],
+    [invalidYaml, "The configured Installation startup file must contain valid YAML."],
+  ]) {
+    await assert.rejects(
+      loadInstallationConfiguration({ mode: "production", environment: { OCC_CONFIG_PATH: path } }),
+      { message },
+      JSON.stringify(path),
+    );
+  }
 });
 
 test("production server and worker resolve singleton startup without an Installation ID", async (t) => {
@@ -896,6 +912,19 @@ test("startup rejects plaintext secrets, caller-authored identities, and unsuppo
         (value.drivers.compute.configuration.runtime.modelSecretPrefix =
           value.drivers.compute.configuration.runtime.transportSecretPrefix),
       /schema|unsupported option/,
+    ],
+    // The reader refuses these anywhere in the file, before any Driver schema runs.
+    [
+      (value) => (value.drivers.compute.configuration.unexpected = 2 ** 53 + 2),
+      /\.unexpected must be a safe integer\.$/,
+    ],
+    [
+      (value) => (value.drivers.compute.configuration.constructor = {}),
+      /contains an unsafe configuration key\.$/,
+    ],
+    [
+      (value) => (value.drivers.compute.configuration.secretRef = "installation-secret"),
+      /Installation-scoped secret references cannot be resolved safely\.$/,
     ],
   ]) {
     const configuration = installation();

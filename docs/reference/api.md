@@ -695,6 +695,7 @@ Confirm which session a GitHub sign-in created
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `413` | Payload Too Large |
@@ -780,6 +781,7 @@ Confirm which session a Google sign-in created
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `413` | Payload Too Large |
@@ -865,6 +867,7 @@ Confirm which session an OIDC sign-in created
 | Status | Meaning |
 | --- | --- |
 | `200` | OK |
+| `400` | Bad Request |
 | `401` | Unauthorized |
 | `403` | Forbidden |
 | `413` | Payload Too Large |
@@ -1147,6 +1150,7 @@ Sign in with email and password
 | `200` | OK |
 | `400` | Bad Request |
 | `401` | Unauthorized |
+| `403` | Forbidden |
 | `413` | Payload Too Large |
 | `415` | Unsupported Media Type |
 | `429` | Too Many Requests |
@@ -1178,6 +1182,7 @@ Sign out of the current session
 | --- | --- |
 | `200` | OK |
 | `401` | Unauthorized |
+| `403` | Forbidden |
 | `503` | Service Unavailable |
 
 **`200` response body:** `application/json`
