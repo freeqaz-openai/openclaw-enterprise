@@ -824,11 +824,12 @@ test("authentication routes refuse NUL characters and unpaired surrogates", asyn
       ...(body === undefined ? {} : { body }),
     });
     assert.equal(result.response.status, 400, `${method} ${pathname}`);
-    // The same code and message as the OCC API routes; the /api/auth/* error schema has no
-    // details field, so, like their other validation failures, these carry none.
+    // The same code, message and field pointer as the OCC API routes: since #1441 the
+    // /api/auth/* error schema keeps validation details.
     assert.deepEqual(result.payload.error, {
       code: "INVALID_REQUEST",
       message: `The request does not match the operation contract: ${context} ${path} contains ${problem}.`,
+      details: [{ path, code: problem === nul ? "INVALID_FORMAT" : "INVALID_VALUE" }],
     });
   }
   assert.equal(fixture.auditSink.events.length, before);
