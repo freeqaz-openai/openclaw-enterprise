@@ -64,27 +64,23 @@ type Use = {
 declare function forward(use: Use): Response | Refused;
 ```
 
-- Check current control-plane authority for **every operation**, including
+- Minimal design: Check Auth for **every operation**, including
   reused connections and cache hits. A denial, ambiguous authority or
   unavailable decision blocks new requests. The extra latency and
-  availability dependency are accepted for V1.
+  availability dependency are accepted limitations for V1.
 - Enforce the boundary for all egress, including child processes and alternate
-  network paths. Unsupported protocols must not bypass it. UDP/QUIC may be
-  denied for MVP; supporting them is desirable if practical. DNS requires its
-  own treatment.
+  network paths. Unsupported protocols must not bypass it. UDP/QUIC out of scope for MVP. DNS requires its
+  own treatment. (I have thoughts)
 - Bind the authorized destination to the actual connection and protocol
   authority, including DNS, IP, port, TLS, HTTP authority and redirects as
   applicable. Strip Agent authentication before forwarding. Protect secrets
-  from workload files, logs and errors; an allowed provider may reflect a
-  credential in its response, so response controls need design.
+  from workload files, logs and errors. Note: response controls need design since some may contain secrets (Possible with GraphQL on GitHub).
 - Authenticate trusted service callers and keep management and
-  credential-vending interfaces out of the Agent workload; custom adapters
-  must preserve this boundary. A copied bearer or a first-connection check
-  alone does not prove current execution authority.
+  credential-vending interfaces out of the Agent workload.
 
-**Discuss with Gateway, OpenShell, IAM and security owners:**
+**Questions:**
 
-1. Which V1 placement can satisfy the same Gateway contract: a shared
+1. One or Many instances? ie, a shared
    processor or OpenShell's per-sandbox supervisors? What trusted transport and
    secret custody does each require?
 2. Which interface owns forwarding, and how does it compose with the existing
@@ -127,9 +123,10 @@ failures under the same unavailable error. A lower cache may also return a
 successful but older value. [Rotation and restart](#appendix-failure-recovery-and-migration)
 need separate adoption evidence.
 
-**Discuss with Secret and Gateway owners:** What trusted access path and
-signing custody should we use? Which errors qualify for fallback, what
-establishes value age and version, and how do invalidation and restart work?
+**Questions:**
+- What trusted access path and signing custody should we use?
+- Which errors qualify for fallback, what establishes value age and version, and how do invalidation and restart work?
+
 See the existing [Secret Driver contract](../../../docs/reference/drivers/secret.md)
 and [Kubernetes Secret Driver](../../../docs/reference/drivers/kubernetes-secret.md).
 
@@ -146,31 +143,17 @@ declare function configure(source: SourceConfiguration, generation: Generation):
 declare function lookupWarm(gateway: TrustedGateway, use: AuthorizedUse): ValidWarmToken | Refused;
 ```
 
-- Authenticate the Gateway and authorize the Agent or delegated bootstrap
-  against the accepted source generation and applicable provider account,
-  repository, permissions and operation. Sharing a source does not share
-  authorization.
-- The control plane is the authority for each decision. Token Service must
+- Authenticate the Gateway and authorize the Agent/request
+  against the accepted source generation and provider,
+  repository, permissions and operation.
+- The control plane is the authority for each policy decision. Token Service must
   verify current authority for the bound use, whether by checking the control
-  plane or validating its decision. An unverifiable decision fails closed;
-  the proof and transport remain open.
-- Refuse missing, expired, insufficiently valid, stale-generation or
-  unavailable material. Configuration acceptance alone is not readiness.
-  A Token Service outage blocks relevant new operations.
+  plane or validating its decision. An unverifiable decision fails closed.
+- A Token Service outage blocks relevant new operations.
 - Target one active refresher per grant, with durable ownership and fencing.
-  Transfer Codex refresh custody deliberately: the current runtime refreshes
-  its own `auth.json`. An uncertain rotating response requires provider
+  An uncertain rotating response requires provider
   reconciliation or reauthorization, not blind replay.
 
-GitHub App signing keys, App JWTs and installation tokens are distinct; so
-are OAuth refresh and access tokens. The owner sees provisioning status and
-receives alerts for affected Agents. Platform operators see refresh failures
-and approaching expiry, with configurable notification policy.
-
-**Discuss with Token, Secret and operations owners:** Where do configuration
-and tokens persist? How are refresher ownership, fencing and Codex custody
-transferred? How does Token Service verify a bound decision? What validity
-margin, bounded readiness wait and alert policy should each provider use?
 The [Codex OAuth storage contract](../../../docs/reference/drivers/kubernetes-compute/codex-oauth-storage.md)
 describes the current runtime-owned refresher.
 
@@ -182,7 +165,7 @@ repository contract owns discovery, profiles, grants, sessions, deadlines and
 cleanup. Removing the Repo Driver later requires explicit new owners for those
 responsibilities.
 
-1. The operator prepares the Namespace, Drivers, backends and provider
+1. The operator prepares the Namespace, Drivers, backends, and provider
    configuration. The owner registers a source with
    `POST /namespaces/:namespaceId/credential-sources`, requiring Namespace
    `credential_source:create` and `secret:operate` on each Secret. The response
@@ -206,10 +189,9 @@ For example, bootstrap uses an authorized warm GitHub installation token to
 clone. A later inference request gets a separate authorization and static-key
 lookup.
 
-**Discuss with repository and Compute owners:** How is bootstrap delegated
-and completion proven? Where do its responsibilities go if the Repo Driver
-is removed? Product and IAM should also decide whether separately
-authorized Agents may share a source.
+**Questions:**
+- How is bootstrap delegated and completion proven? (a script that uses the bearer, probably)
+- Where do its responsibilities go if the Repo Driver is removed?
 
 See the [repository credentials contract](../../../docs/reference/repository-credentials.md)
 and [credential source contract](../../../docs/reference/credential-sources.md)
