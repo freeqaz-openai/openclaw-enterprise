@@ -1,6 +1,6 @@
 ---
 created: "2026-09-26"
-updated: 2026-10-05
+updated: 2026-10-06
 last_updated_session: agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110
 ---
 
@@ -77,6 +77,14 @@ unknown type, an unknown field, or a missing required field with
 `ScopeViolationError` (`404`). It then calls the Driver's side-effect-free
 `validateSourceConfig`. Invalid values return `CredentialSourceConfigError`
 (`400 INVALID_REQUEST`) before any Secret read, record creation, or gateway write.
+The shared `apps/controller/src/drivers/openai-endpoint.ts:normalizeOpenAiBaseUrl`
+parses URLs before rejecting wildcard hostnames (including decoded percent
+escapes), wildcard paths, and port `0`. OpenShell additionally uses
+`apps/controller/src/drivers/credential-gateway/openshell.ts:normalizedSourceBaseUrl`
+to reject bracketed IPv6 hosts: its profile matcher interprets brackets as
+character classes, not literal URI syntax. Compute URL validation still accepts
+IPv6. Registration and attachment require the OpenShell-safe representation;
+status and deletion retain the no-guessed-owner behavior for invalid stored sources.
 
 ### 2. Read Secret values
 
@@ -293,6 +301,8 @@ than re-attach the source.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-06 16:12: Reject normalized hostname stars, zero ports, and OpenShell bracket hosts before credential-source persistence. (agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110 - 129b9b98812a861cfbdcec386daf5258902ebba8)
 
 - 2026-10-05 11:36: Validate source configuration before persistence and recover invalid rows without guessing remote ownership. (agent:roboclaw:dashboard:9d0532e1-befb-4fc3-935e-7cd2a0c72110 - 9958ef0412565864efba7b13995536d7c2a51d22)
 

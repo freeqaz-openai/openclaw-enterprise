@@ -190,7 +190,7 @@ workers, so size the limit against the Agent workload's CPU and memory limits.
 
 For dedicated Codex `api_key` authentication, `runtime.codexOpenaiBaseUrl` selects
 an HTTPS streaming Responses endpoint ending in `/v1` (including `/api/v1`).
-Credentials, wildcards, queries, and fragments are rejected. Omission retains
+Hostname/path wildcards, port `0`, credentials, queries, and fragments are rejected. Omission retains
 OpenAI's default; bound OpenShell sources select their own endpoint. OAuth,
 account logins, and OpenClaw ignore this option. Only the Harness receives the
 model key. Private Gateway configuration qualifies native IDs without changing

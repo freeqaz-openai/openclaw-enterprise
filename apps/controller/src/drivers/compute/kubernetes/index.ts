@@ -2322,7 +2322,7 @@ export class KubernetesComputeDriver implements ComputeDriver {
         normalizeOpenAiBaseUrl(options.runtime.codexOpenaiBaseUrl) === undefined
       ) {
         throw new ConfigurationFailure(
-          "Codex model endpoint requires HTTPS and a path ending in /v1 without credentials, wildcards, query, or fragment.",
+          "Codex model endpoint requires HTTPS, a nonzero port, and a path ending in /v1 without credentials, wildcards, query, or fragment.",
         );
       }
       if (options.runtime.codexSeccompProfile !== undefined) {
@@ -10099,7 +10099,9 @@ chmodSync(${JSON.stringify(nodeStatePath)}, 0o700);`;
     if (openaiBaseUrl !== undefined) {
       const normalized = normalizeOpenAiBaseUrl(openaiBaseUrl);
       if (normalized === undefined) {
-        throw new ConfigurationFailure("Codex model endpoint requires a valid HTTPS /v1 URL.");
+        throw new ConfigurationFailure(
+          "Codex model endpoint requires a valid HTTPS /v1 URL with a nonzero port and no hostname wildcards.",
+        );
       }
       openaiBaseUrl = normalized;
     }

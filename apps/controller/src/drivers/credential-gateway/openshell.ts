@@ -49,6 +49,8 @@ const NAMESPACE_ID_LABEL = "openclaw.dev/namespace-id";
 const PROFILE_DIGEST_ANNOTATION = "openclaw.dev/profile-digest";
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_BASE_URL_CONFIG = "base_url";
+const SOURCE_ENDPOINT_REQUIREMENTS =
+  "The OpenShell endpoint requires HTTPS, a nonzero port, and a /v1 path. Wildcards, bracketed IPv6 hosts, URL credentials, query, and fragment are unsupported.";
 
 interface OpenShellSourceType {
   readonly catalog: CredentialSourceType;
@@ -160,12 +162,20 @@ function ownedBy(
   );
 }
 
-function sourceBaseUrl(config: Readonly<Record<string, string>>): string {
+function normalizedSourceBaseUrl(config: Readonly<Record<string, string>>): string | undefined {
   const baseUrl = normalizeOpenAiBaseUrl(config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL);
+  // IPv6 brackets are URI syntax, but HostPattern interprets them as character classes.
+  // Do not glob-escape them without an exact representation shared by policy matching.
+  if (baseUrl === undefined || new URL(baseUrl).hostname.startsWith("[")) {
+    return undefined;
+  }
+  return baseUrl;
+}
+
+function sourceBaseUrl(config: Readonly<Record<string, string>>): string {
+  const baseUrl = normalizedSourceBaseUrl(config);
   if (baseUrl === undefined) {
-    throw new ScopeViolationError(
-      "The OpenAI-compatible endpoint must use HTTPS and a path ending in /v1 without wildcards, credentials, query, or fragment.",
-    );
+    throw new ScopeViolationError(SOURCE_ENDPOINT_REQUIREMENTS);
   }
   return baseUrl;
 }
@@ -225,14 +235,8 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
 
   validateSourceConfig(input: Pick<CredentialSourceInput, "type" | "config">): void {
     sourceType(input.type);
-    if (
-      normalizeOpenAiBaseUrl(input.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL) ===
-      undefined
-    ) {
-      throw new CredentialSourceConfigError(
-        OPENAI_BASE_URL_CONFIG,
-        "The OpenAI-compatible endpoint must use HTTPS and a path ending in /v1 without wildcards, credentials, query, or fragment.",
-      );
+    if (normalizedSourceBaseUrl(input.config) === undefined) {
+      throw new CredentialSourceConfigError(OPENAI_BASE_URL_CONFIG, SOURCE_ENDPOINT_REQUIREMENTS);
     }
   }
 
@@ -315,9 +319,7 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
 
   async sourceStatus(context: CredentialSourceContext): Promise<CredentialSourceStatus> {
     const type = sourceType(context.source.type);
-    const baseUrl = normalizeOpenAiBaseUrl(
-      context.source.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL,
-    );
+    const baseUrl = normalizedSourceBaseUrl(context.source.config);
     const provider = await this.client(context).getProvider(
       openShellWorkspaceName(context.namespace),
       openShellProviderName(context.source.id),
@@ -337,15 +339,13 @@ export class OpenShellCredentialGatewayDriver implements CredentialGatewayDriver
 
   async removeSource(context: CredentialSourceContext): Promise<void> {
     const type = sourceType(context.source.type);
-    const baseUrl = normalizeOpenAiBaseUrl(
-      context.source.config[OPENAI_BASE_URL_CONFIG] ?? OPENAI_DEFAULT_BASE_URL,
-    );
+    const baseUrl = normalizedSourceBaseUrl(context.source.config);
     const workspace = openShellWorkspaceName(context.namespace);
     const name = openShellProviderName(context.source.id);
     const client = this.client(context);
     const existing = await client.getProvider(workspace, name, context.signal);
-    // Invalid configuration cannot have created a profile, but a real remote
-    // collision is not absence. Never guess its owner or delete another profile.
+    // Invalid configuration cannot identify a profile safely; a real remote
+    // resource is not absence. Never guess its owner or delete another profile.
     if (baseUrl === undefined) {
       if (existing !== undefined) {
         throw new ScopeViolationError("The OpenShell provider's ownership cannot be verified.");

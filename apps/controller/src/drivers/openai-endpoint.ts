@@ -10,6 +10,9 @@ export function normalizeOpenAiBaseUrl(value: string): string | undefined {
   if (
     endpoint.protocol !== "https:" ||
     endpoint.hostname.length === 0 ||
+    // WHATWG decodes hostname escapes but permits stars that profiles treat as patterns.
+    endpoint.hostname.includes("*") ||
+    endpoint.port === "0" ||
     endpoint.username !== "" ||
     endpoint.password !== "" ||
     !path.endsWith("/v1") ||

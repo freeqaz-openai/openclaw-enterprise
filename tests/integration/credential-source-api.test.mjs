@@ -10,6 +10,7 @@ import { OpenShellCredentialGatewayDriver } from "../../apps/controller/src/driv
 import { OpenShellProviderAlreadyExistsError } from "../../apps/controller/src/drivers/sandbox/openshell-gateway-client.ts";
 import { createConsoleAppFixture } from "../helpers/console-app.mjs";
 import { createDevelopmentComputeDriver } from "../helpers/development.mjs";
+import { createTestSecretDriver } from "../helpers/secret-driver.mjs";
 
 // Gateway storage and Compute placement are test doubles. Requests use the real
 // Fastify app, authentication, IAM, OCC transactions, and OpenShell Driver.
@@ -78,7 +79,12 @@ async function fixture(t) {
       return namespace;
     },
   };
-  const app = await createConsoleAppFixture(t, { now: () => new Date(now), computeDriver });
+  const secretDriver = createTestSecretDriver();
+  const app = await createConsoleAppFixture(t, {
+    now: () => new Date(now),
+    computeDriver,
+    secretDriver,
+  });
   await app.bootstrap();
   app.controller.registerDriver(driver);
   app.controller.selectDriver("credential_gateway", driver.id);
@@ -96,21 +102,22 @@ async function fixture(t) {
     providers,
     profiles,
     mutations,
+    secretDriver,
     namespace,
     path,
     create,
     passRegistrationFence() {
       now += 71_000;
     },
-    async seedInvalid(type = "openai") {
-      // Reproduce the historical failed registration: no remote mutation ever ran,
-      // but OCC retained a deleting row. Its age is beyond the registration fence.
+    async seedInvalid(type = "openai", baseUrl = "http://") {
+      // Reproduce invalid persisted configuration beyond the registration fence.
+      // Each case decides whether the remote provider is absent or still present.
       const source = {
         id: "cs_" + randomUUID(),
         namespaceId: namespace.id,
         name: "invalid-" + randomUUID(),
         type,
-        config: { base_url: "http://" },
+        config: { base_url: baseUrl },
         secrets: { api_key: secret.ref },
         driverId: driver.id,
         state: "registering",
@@ -132,6 +139,18 @@ test("credential source HTTP admission rejects invalid endpoints without retaini
     "https://models.example.test",
     "http://models.example.test/v1",
     "https://models.example.test/*/v1",
+    "https://**/v1",
+    "https://*.example.test/v1",
+    "https://ex*ample.test/v1",
+    "https://%2a%2A/v1",
+    "https://%2A.example.test/v1",
+    "https://ex%2aample.test/v1",
+    "https://＊.example.test/v1",
+    "https://models.example.test:0/v1",
+    "https://models.example.test:000/v1",
+    // URI-valid IPv6 brackets would be character classes in OpenShell host patterns.
+    "https://[2001:db8::1]/v1",
+    "https://[::1]/v1",
     "https://models.example.test/v1?option=value",
     "https://models.example.test/v1#fragment",
   ]) {
@@ -144,7 +163,14 @@ test("credential source HTTP admission rejects invalid endpoints without retaini
       { path: "/config/base_url", code: "INVALID_VALUE" },
     ]);
     assert.match(response.body.error.message, new RegExp("HTTPS.*/v1"));
+    if (base_url.startsWith("https://[")) {
+      assert.match(response.body.error.message, /bracketed IPv6 hosts.*unsupported/);
+    }
   }
+  assert.equal(
+    f.secretDriver.calls.some(({ operation }) => operation === "withValue"),
+    false,
+  );
   assert.deepEqual(f.mutations, []);
   assert.equal(f.providers.size, 0);
   assert.equal(f.profiles.size, 0);
@@ -155,32 +181,36 @@ test("credential source HTTP deletion recovers invalid stored endpoints without 
   const healthy = await f.create("healthy");
   assert.equal(healthy.status, 201, JSON.stringify(healthy.body));
   const profilesBefore = structuredClone([...f.profiles]);
-  const source = await f.seedInvalid();
-  const path = f.path + "/" + source.id;
-  const read = await f.request("GET", path);
-  assert.equal(read.status, 200);
-  assert.equal(read.data.status.state, "absent");
-  assert.equal((await f.request("DELETE", path)).status, 204);
-  assert.equal((await f.request("GET", path)).status, 404);
-  assert.deepEqual([...f.profiles], profilesBefore);
+  for (const baseUrl of ["http://", "https://**/v1", "https://[2001:db8::1]/v1"]) {
+    const source = await f.seedInvalid("openai", baseUrl);
+    const path = f.path + "/" + source.id;
+    const read = await f.request("GET", path);
+    assert.equal(read.status, 200);
+    assert.equal(read.data.status.state, "absent");
+    assert.equal((await f.request("DELETE", path)).status, 204);
+    assert.equal((await f.request("GET", path)).status, 404);
+    assert.deepEqual([...f.profiles], profilesBefore);
+  }
   assert.equal((await f.request("GET", f.path + "/" + healthy.data.id)).data.status.state, "ready");
 
   // An unexpected remote resource is not evidence of absence. Even source labels
   // cannot prove its profile from an invalid endpoint; preserve both objects.
-  const collision = await f.seedInvalid();
-  const existing = [...f.providers.values()][0];
-  const foreign = {
-    ...existing,
-    name: openShellProviderName(collision.id),
-    labels: { ...existing.labels, "openclaw.dev/credential-source-id": collision.id },
-  };
-  f.providers.set(foreign.workspace + "/" + foreign.name, foreign);
-  const collisionPath = f.path + "/" + collision.id;
-  assert.equal((await f.request("GET", collisionPath)).data.status.state, "failed");
-  assert.notEqual((await f.request("DELETE", collisionPath)).status, 204);
-  assert.equal((await f.request("GET", collisionPath)).data.state, "deleting");
-  assert.ok([...f.providers.values()].includes(foreign));
-  assert.deepEqual([...f.profiles], profilesBefore);
+  for (const baseUrl of ["https://**/v1", "https://[2001:db8::1]/v1"]) {
+    const collision = await f.seedInvalid("openai", baseUrl);
+    const existing = [...f.providers.values()][0];
+    const foreign = {
+      ...existing,
+      name: openShellProviderName(collision.id),
+      labels: { ...existing.labels, "openclaw.dev/credential-source-id": collision.id },
+    };
+    f.providers.set(foreign.workspace + "/" + foreign.name, foreign);
+    const collisionPath = f.path + "/" + collision.id;
+    assert.equal((await f.request("GET", collisionPath)).data.status.state, "failed");
+    assert.notEqual((await f.request("DELETE", collisionPath)).status, 204);
+    assert.equal((await f.request("GET", collisionPath)).data.state, "deleting");
+    assert.ok([...f.providers.values()].includes(foreign));
+    assert.deepEqual([...f.profiles], profilesBefore);
+  }
 
   const unknown = await f.seedInvalid("unknown");
   assert.notEqual((await f.request("DELETE", f.path + "/" + unknown.id)).status, 204);
@@ -263,4 +293,33 @@ test("OpenShell custom and default credential profiles keep independent ownershi
   assert.equal((await f.request("DELETE", f.path + "/" + standard.data.id)).status, 204);
   assert.equal(f.profiles.size, 0);
   assert.equal(f.providers.size, 0);
+});
+
+test("concrete credential source endpoints retain normalized profile scope", async (t) => {
+  const f = await fixture(t);
+  const cases = [
+    ["https://models.example.test/v1", "models.example.test", 443, "/v1/**"],
+    ["https://MODELS.example.test:443/api/./v1/", "models.example.test", 443, "/api/v1/**"],
+    ["https://bücher.example.test:8443/api/v1/", "xn--bcher-kva.example.test", 8443, "/api/v1/**"],
+    ["https://192.0.2.1/v1", "192.0.2.1", 443, "/v1/**"],
+    ["https://API.OpenAI.com:443/v1/", "api.openai.com", 443, "/v1/**"],
+  ];
+  for (const [base_url, host, port, path] of cases) {
+    const created = await f.create("concrete endpoint", { base_url });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    // Assert the profile produced through HTTP/OCC, not a copied normalizer.
+    const profile = [...f.profiles.values()][0];
+    assert.deepEqual(profile.endpoints, [{ host, port, protocol: "rest", path }]);
+    if (host === "api.openai.com") {
+      assert.equal(profile.id, "oce-openai");
+    }
+    assert.equal(
+      (await f.request("GET", f.path + "/" + created.data.id)).data.status.state,
+      "ready",
+    );
+    f.passRegistrationFence();
+    assert.equal((await f.request("DELETE", f.path + "/" + created.data.id)).status, 204);
+    assert.equal(f.profiles.size, 0);
+    assert.equal(f.providers.size, 0);
+  }
 });

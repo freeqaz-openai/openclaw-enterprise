@@ -69,9 +69,12 @@ Sandboxes and reads attachment status. Allow both to reach the gateway.
 
 When omitted, `base_url` defaults to `https://api.openai.com/v1`. Set it to an
 HTTPS OpenAI-compatible endpoint ending in `/v1` to use a different service.
-Path prefixes such as `/api/v1` are supported. Wildcards, URL credentials,
-queries, and fragments are rejected with `400 INVALID_REQUEST` before Secret
-reads or persistence. The Driver and Compute share URL validation and normalization.
+Path prefixes such as `/api/v1` are supported. Hostname/path wildcards, port `0`,
+URL credentials, queries, and fragments are rejected with `400 INVALID_REQUEST`
+before Secret reads or persistence. The Driver and Compute share URL normalization;
+hostname percent escapes are decoded before checking for wildcard stars.
+The Driver rejects bracketed IPv6 hosts, which the upstream profile matcher treats as
+character classes; Compute URL validation still accepts IPv6.
 Codex requires that endpoint to implement the OpenAI Responses API. The selected
 endpoint is part of the source configuration and cannot be changed by updating
 its Secret; register a new source to change it.
