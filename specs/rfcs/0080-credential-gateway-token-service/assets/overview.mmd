@@ -1,5 +1,5 @@
 ---
-title: "Proposed credential path"
+title: "Proposed credential architecture"
 config:
   theme: base
   htmlLabels: true
@@ -12,24 +12,31 @@ config:
   flowchart:
     useMaxWidth: false
     curve: linear
-    nodeSpacing: 18
-    rankSpacing: 32
+    nodeSpacing: 15
+    rankSpacing: 24
     padding: 10
     diagramPadding: 12
 ---
 flowchart TB
-  Agent["<b>Agent or bootstrap</b><br/>Request with identity"]
-  Gateway["<b>Credential Gateway</b><br/>Authorize, inject, forward"]
+  Setup["<b>Operator</b><br/>Configure sources and grants"]
+  Control["<b>Control plane</b><br/>Authorize each use"]
+  Store["<b>Secret store</b><br/>Static and refresh inputs"]
+  Static["<b>Secret Driver</b><br/>Read current values"]
+  Dynamic["<b>Token Service</b><br/>Refresh in background"]
+  Agent["<b>Agent or bootstrap</b><br/>Egress with identity"]
+  Gateway["<b>Credential Gateway</b><br/>Enforce, fetch, inject"]
   Provider["<b>Provider</b><br/>GitHub, inference"]
-  Control["<b>Control plane</b><br/>Check each operation"]
-  Static["<b>Secret Driver</b><br/>Read static keys"]
-  Dynamic["<b>Token Service</b><br/>Refresh tokens"]
+  Setup -.-> Control
+  Control -.-> Dynamic
   Agent -.-> Gateway
-  Gateway -.->|forward after allow| Provider
-  Gateway -.->|check| Control
-  Gateway -.->|static material| Static
-  Gateway -.->|warm token| Dynamic
-  class Agent,Provider external
+  Gateway -.-> Control
+  Gateway -.-> Static
+  Gateway -.-> Dynamic
+  Static -.-> Store
+  Dynamic -.-> Static
+  Gateway -.-> Provider
+  class Setup,Agent,Provider external
+  class Store external
   class Gateway action
   class Control,Static,Dynamic api
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
