@@ -1,0 +1,58 @@
+---
+title: "Proposed request and credential selection"
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    actorBkg: "#EDF2F7"
+    actorBorder: "#879AB0"
+    actorTextColor: "#25364A"
+    noteBkgColor: "#F7F1E5"
+    noteBorderColor: "#B3A078"
+    noteTextColor: "#344054"
+    signalColor: "#748798"
+    signalTextColor: "#25364A"
+  sequence:
+    useMaxWidth: false
+    actorMargin: 16
+    width: 110
+    height: 42
+    diagramMarginX: 12
+    diagramMarginY: 12
+    messageMargin: 17
+    noteMargin: 8
+    mirrorActors: true
+    wrap: true
+---
+sequenceDiagram
+  participant A as Agent
+  participant G as Gateway
+  participant C as Control plane
+  participant S as Secret Driver / Token Service
+  participant P as Provider
+  A->>G: Operation with identity bearer
+  G->>C: Authorize current execution and use
+  C-->>G: Allow, deny, or unavailable
+  alt Deny or unavailable
+    G-->>A: Refuse without forwarding
+  else Allow, including cache hits
+    alt Static credential
+      Note over G,S: Fresh scoped cache hit skips Secret read
+      opt Cache miss or refresh
+        G->>S: Authenticated Secret read
+        S-->>G: Value or typed failure
+      end
+      Note over G,S: Only eligible temporary errors permit fallback
+    else Dynamic credential
+      G->>S: Scoped warm token lookup only
+      S-->>G: Usable token or failure
+    end
+    alt Usable scoped material
+      G->>P: Strip bearer, inject credential, forward
+      P-->>G: Response
+      G-->>A: Return response
+    else Denied, missing, or unusable material
+      G-->>A: Refuse without forwarding
+    end
+  end

@@ -1,0 +1,43 @@
+---
+title: "Proposed optional clone gate"
+config:
+  theme: base
+  htmlLabels: true
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    primaryTextColor: "#25364A"
+    lineColor: "#748798"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    useMaxWidth: false
+    curve: linear
+    nodeSpacing: 16
+    rankSpacing: 16
+    padding: 10
+    diagramPadding: 10
+    subGraphTitleMargin:
+      top: 8
+      bottom: 10
+---
+flowchart TB
+  Repo{"Repository<br/>configured?"}
+  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped clone via gateway"]
+  Gate["<b>Gateway gate</b><br/>Live control-plane allow,<br/>then usable warm token"]
+  Clone["<b>Gateway → GitHub</b><br/>Inject token, forward clone"]
+  Start["<b>Compute starts Agent</b><br/>Required gates satisfied"]
+  Block["<b>Compute / bootstrap</b><br/>Block startup by default<br/>Own partial work"]
+  Repo -.->|no clone| Start
+  Repo -.->|yes| Bootstrap
+  Bootstrap -.-> Gate
+  Gate -.->|allow + usable| Clone
+  Gate -.->|not allowed / not usable| Block
+  Clone -.->|observed success| Start
+  Clone -.->|failed / uncertain| Block
+  class Bootstrap,Clone,Start action
+  class Gate api
+  class Repo,Block gate
+  classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
+  classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
+  classDef gate fill:#F7F1E5,stroke:#B3A078,color:#514532,stroke-width:1px
+  linkStyle default stroke:#748798,stroke-width:1px

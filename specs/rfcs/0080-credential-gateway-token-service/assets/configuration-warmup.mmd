@@ -1,0 +1,43 @@
+---
+title: "Proposed · configuration and warmup"
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    actorBkg: "#EDF2F7"
+    actorBorder: "#879AB0"
+    actorTextColor: "#25364A"
+    noteBkgColor: "#F7F1E5"
+    noteBorderColor: "#B3A078"
+    noteTextColor: "#344054"
+    signalColor: "#748798"
+    signalTextColor: "#25364A"
+  sequence:
+    useMaxWidth: false
+    actorMargin: 20
+    width: 125
+    height: 48
+    diagramMarginX: 16
+    diagramMarginY: 16
+    messageMargin: 20
+    noteMargin: 10
+    mirrorActors: true
+    wrap: true
+---
+sequenceDiagram
+  participant C as Control plane
+  participant T as Token Service
+  participant S as Secret Driver<br/>+ backend
+  participant P as Provider
+  Note over C,T: Sources and grants<br/>Admission is not readiness
+  C->>T: Push versioned configuration
+  T-->>C: Accepted generation
+  T->>S: Authorized signing / refresh input
+  S-->>T: Input or refusal
+  Note over T,S: Input refusal blocks issuance
+  T->>P: With input: proactively obtain / refresh
+  P-->>T: Scoped token or failure
+  Note over T: Report failure<br/>Readiness needs<br/>a usable token
+  T-->>C: Warm readiness or failure status
+  Note over C,T: Required token absent → block startup

@@ -1,0 +1,38 @@
+---
+title: "Proposed credential path"
+config:
+  theme: base
+  htmlLabels: true
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    primaryTextColor: "#25364A"
+    lineColor: "#748798"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    useMaxWidth: false
+    curve: linear
+    nodeSpacing: 18
+    rankSpacing: 32
+    padding: 10
+    diagramPadding: 12
+---
+flowchart TB
+  Agent["<b>Agent or bootstrap</b><br/>Request with identity"]
+  Gateway["<b>Credential Gateway</b><br/>Authorize, inject, forward"]
+  Provider["<b>Provider</b><br/>GitHub, inference"]
+  Control["<b>Control plane</b><br/>Check each operation"]
+  Static["<b>Secret Driver</b><br/>Read static keys"]
+  Dynamic["<b>Token Service</b><br/>Refresh tokens"]
+  Agent -.-> Gateway
+  Gateway -.->|forward after allow| Provider
+  Gateway -.->|check| Control
+  Gateway -.->|static material| Static
+  Gateway -.->|warm token| Dynamic
+  class Agent,Provider external
+  class Gateway action
+  class Control,Static,Dynamic api
+  classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
+  classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
+  classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px
+  linkStyle default stroke:#748798,stroke-width:1px

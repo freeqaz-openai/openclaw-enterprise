@@ -1,0 +1,42 @@
+---
+title: "Proposed · withdrawal and recovery"
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    actorBkg: "#EDF2F7"
+    actorBorder: "#879AB0"
+    actorTextColor: "#25364A"
+    noteBkgColor: "#F7F1E5"
+    noteBorderColor: "#B3A078"
+    noteTextColor: "#344054"
+    signalColor: "#748798"
+    signalTextColor: "#25364A"
+  sequence:
+    useMaxWidth: false
+    actorMargin: 20
+    width: 125
+    height: 48
+    diagramMarginX: 16
+    diagramMarginY: 16
+    messageMargin: 20
+    noteMargin: 10
+    mirrorActors: true
+    wrap: true
+---
+sequenceDiagram
+  participant O as Owner
+  participant C as Control plane
+  participant G as Credential<br/>Gateway
+  participant R as Cleanup /<br/>credential owner
+  O->>C: Withdraw source access or stop revision
+  G->>C: Authorize next operation
+  C-->>G: Deny or unavailable
+  Note over C,G: New unauthorized work is blocked
+  Note over G: Open-stream policy remains open
+  C-->>O: Status and outstanding cleanup
+  C->>R: Retain unresolved cleanup obligations
+  Note over C,R: Original owner retains uncertain effects
+  R-->>C: Evidence of resolved or pending work
+  Note over C,R: Local closure does not prove provider disposal
