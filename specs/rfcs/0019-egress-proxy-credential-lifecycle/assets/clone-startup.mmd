@@ -22,9 +22,9 @@ config:
 ---
 flowchart TB
   Repo{"Repository<br/>configured?"}
-  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped clone via proxy"]
-  Gate["<b>Proxy check</b><br/>Warm token and<br/>final OCC decision"]
-  Clone["<b>Proxy → GitHub</b><br/>Inject token, forward clone"]
+  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped authorized clone"]
+  Gate["<b>Sender check</b><br/>Warm token and<br/>final OCC decision"]
+  Clone["<b>Trusted sender → GitHub</b><br/>Inject token, forward clone"]
   Start["<b>Compute starts Agent</b><br/>Required gates satisfied"]
   Block["<b>Compute / bootstrap</b><br/>Block startup by default<br/>Own partial work"]
   Repo -.->|no clone| Start

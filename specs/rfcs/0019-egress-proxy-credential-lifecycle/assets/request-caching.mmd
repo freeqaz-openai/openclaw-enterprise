@@ -28,37 +28,42 @@ config:
 sequenceDiagram
   participant A as Agent
   participant G as Egress Proxy
-  participant C as Control plane
-  participant S as Secret Driver / Token Service
+  participant C as OCC
+  participant R as CredentialResolver
+  participant S as Secret Driver /<br/>lifecycle owner
   participant P as Provider
-  A->>G: Operation with identity bearer
-  G->>C: Authorize current execution and use
+  A->>G: Operation with execution bearer
+  G->>G: Capture immutable operation
+  G->>C: Check caller, operation, route and grant online
   C-->>G: Allow, deny, or unavailable
   alt Deny or unavailable
     G-->>A: Refuse without forwarding
-  else Allow, including cache hits
+  else Allow
+    G->>R: Resolve admitted binding for this use
     alt Static credential
-      Note over G,S: Fresh scoped cache hit skips Secret read
-      opt Cache miss or refresh
-        G->>S: Authenticated Secret read
-        S-->>G: Value or typed failure
-      end
-      Note over G,S: Only eligible temporary errors permit fallback
+      R->>S: Read or use eligible retained value
+      S-->>R: Value or typed failure
+      Note over R,S: Stale fallback needs eligible error and age evidence
     else Dynamic credential
-      G->>S: Scoped warm token lookup only
-      S-->>G: Usable token or failure
+      R->>S: Scoped warm token lookup only
+      S-->>R: Usable token or failure
+      Note over R,S: Scoped reuse, no read-triggered issuance or refresh
     end
-    alt Usable scoped material
-      G->>C: Final online check for captured operation
+    R-->>G: Use-bound handle or refusal
+    alt Usable material
+      G->>G: Finish transformations and awaited preparation
+      G->>C: Fresh check: exact context and material identity/version
       C-->>G: Allow, deny, or unavailable
-      alt Allow
-        G->>P: Strip bearer, inject credential, forward
+      G->>G: Recheck material usability and both deadlines
+      alt Allow and usable within deadlines
+        G->>P: Strip Agent authentication, inject, forward
         P-->>G: Response
         G-->>A: Apply response policy
-      else Deny or unavailable
+      else Denied, unavailable, unusable or too late
         G-->>A: Refuse without forwarding
       end
     else Denied, missing, or unusable material
       G-->>A: Refuse without forwarding
     end
   end
+  Note over A,G: Repeat for each HTTP subrequest, redirect and retry,<br/>no cached allows, including on reused connections

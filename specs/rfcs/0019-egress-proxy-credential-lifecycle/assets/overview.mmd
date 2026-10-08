@@ -12,36 +12,34 @@ config:
   flowchart:
     useMaxWidth: false
     curve: linear
-    nodeSpacing: 15
+    nodeSpacing: 18
     rankSpacing: 24
     padding: 10
     diagramPadding: 12
 ---
 flowchart TB
-  Setup["<b>Operator</b><br/>Declare sources and bindings"]
-  Control["<b>OCC</b><br/>Admit config, check policy"]
-  Store["<b>Secret store</b><br/>Static and refresh inputs"]
-  Static["<b>Secret Driver</b><br/>Read current values"]
-  Dynamic["<b>Token Service</b><br/>Warm tokens in background"]
-  Agent["<b>Agent or bootstrap</b><br/>Egress with identity"]
-  Gateway["<b>Egress Proxy</b><br/>Authorize, inject, send"]
-  Resolver["<b>Credential resolver</b><br/>Route binding, resolve use"]
+  Agent["<b>Agent execution</b><br/>All egress mediated"]
+  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped repository work"]
+  Discovery["<b>Trusted discovery</b><br/>Scoped service caller"]
+  Sender["<b>Egress Proxy /</b><br/><b>trusted sender</b><br/>Capture, inject, send"]
+  Control["<b>OCC</b><br/>Admit and check"]
+  Resolver["<b>CredentialResolver</b><br/>Resolve each use"]
+  Secret["<b>Secret Driver</b><br/>Static or lifecycle input"]
+  Lifecycle["<b>Token Service</b><br/>Lifecycle owner<br/>Prepare warm tokens"]
   Provider["<b>Provider</b><br/>GitHub, inference"]
-  Setup -. declarations .-> Control
-  Control -. prepare grants .-> Dynamic
-  Agent -. request .-> Gateway
-  Gateway -. final check .-> Control
-  Gateway -. resolve binding .-> Resolver
-  Resolver -. check current use .-> Control
-  Resolver -. static .-> Static
-  Resolver -. warm dynamic .-> Dynamic
-  Static -. read .-> Store
-  Dynamic -. refresh inputs .-> Static
-  Gateway -. inject and forward .-> Provider
-  class Setup,Agent,Provider external
-  class Store external
-  class Gateway action
-  class Control,Resolver,Static,Dynamic api
+  Agent -. operation .-> Sender
+  Bootstrap -. operation .-> Sender
+  Discovery -. operation .-> Sender
+  Sender -. fresh checks .-> Control
+  Sender -. resolve binding .-> Resolver
+  Resolver -. static .-> Secret
+  Resolver -. warm dynamic .-> Lifecycle
+  Lifecycle -. lifecycle input .-> Secret
+  Lifecycle -. background issuance .-> Provider
+  Sender -. forward .-> Provider
+  class Agent,Bootstrap,Discovery,Provider external
+  class Sender action
+  class Control,Resolver,Secret,Lifecycle api
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
   classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
   classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px

@@ -35,9 +35,10 @@ sequenceDiagram
   T-->>C: Accepted generation
   T->>S: Authorized signing / refresh input
   S-->>T: Input or refusal
-  Note over T,S: Input refusal blocks issuance
+  Note over T,S: Input refusal blocks issuance,<br/>bootstrap seed cannot replace newer canonical input
+  Note over T: Fence rotating input before consumption
   T->>P: With input: proactively obtain / refresh
   P-->>T: Scoped token or failure
-  Note over T: Report failure<br/>Readiness needs<br/>a usable token
+  Note over T,S: Readiness requires<br/>usable material and<br/>durable replacement input<br/>if rotated.<br/>Otherwise report failure
   T-->>C: Warm readiness or failure status
   Note over C,T: Required token absent → block startup
