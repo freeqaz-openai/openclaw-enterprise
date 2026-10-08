@@ -18,27 +18,30 @@ config:
     diagramPadding: 12
 ---
 flowchart TB
-  Setup["<b>Operator</b><br/>Configure sources and grants"]
-  Control["<b>Control plane</b><br/>Authorize each use"]
+  Setup["<b>Operator</b><br/>Declare sources and bindings"]
+  Control["<b>OCC</b><br/>Admit config, check policy"]
   Store["<b>Secret store</b><br/>Static and refresh inputs"]
   Static["<b>Secret Driver</b><br/>Read current values"]
   Dynamic["<b>Token Service</b><br/>Warm tokens in background"]
   Agent["<b>Agent or bootstrap</b><br/>Egress with identity"]
   Gateway["<b>Egress Proxy</b><br/>Authorize, inject, send"]
+  Resolver["<b>Credential resolver</b><br/>Route binding, resolve use"]
   Provider["<b>Provider</b><br/>GitHub, inference"]
-  Setup -.-> Control
-  Control -.-> Dynamic
-  Agent -.-> Gateway
-  Gateway -.-> Control
-  Gateway -.-> Static
-  Gateway -.-> Dynamic
-  Static -.-> Store
-  Dynamic -.-> Static
-  Gateway -.-> Provider
+  Setup -. declarations .-> Control
+  Control -. prepare grants .-> Dynamic
+  Agent -. request .-> Gateway
+  Gateway -. final check .-> Control
+  Gateway -. resolve binding .-> Resolver
+  Resolver -. check current use .-> Control
+  Resolver -. static .-> Static
+  Resolver -. warm dynamic .-> Dynamic
+  Static -. read .-> Store
+  Dynamic -. refresh inputs .-> Static
+  Gateway -. inject and forward .-> Provider
   class Setup,Agent,Provider external
   class Store external
   class Gateway action
-  class Control,Static,Dynamic api
+  class Control,Resolver,Static,Dynamic api
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
   classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
   classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px

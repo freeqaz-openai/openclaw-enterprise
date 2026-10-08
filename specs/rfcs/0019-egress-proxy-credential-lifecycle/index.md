@@ -132,12 +132,54 @@ and before send?
 
 ## Credential resolution
 
-The preferred trusted integration performs the whole operation, conceptually
-`egress.forRequest(request).forward(binding)`. A lower-level resolver can serve
-trusted adapters with `resolve(binding, authorizedUse)` for either static or
-dynamic material. Resolution does not itself authorize a send. These are
-logical interfaces, not selected wire APIs. Agent code uses normal clients or
-placeholders; it does not obtain provider material.
+### Declarative configuration and request APIs
+
+Operators declare **Agent binding → credential source → backend instance →
+provider kind**, with an approved grant. OCC validates schemas, capabilities,
+and scope and records one versioned route. These declarations can extend
+existing records; the example does not prescribe new resource types or a wire
+schema.
+
+```yaml
+backends:
+  primary: { driver: openshell }
+credentialSources:
+  company-github:
+    backendRef: primary
+    kind: github-app/v1
+    providerRef: provider-uuid
+agentBindings:
+  repo-reader:
+    agentRef: build-agent
+    sourceRef: company-github
+    grant:
+      repositoryIds: ["123"]
+      permissions: { contents: read }
+```
+
+A placeholder or endpoint rule selects the binding. The resolver follows that
+exact configured route; requests cannot load a driver, choose another source,
+or widen scope. The provider adapter classifies the actual request and checks
+its required use against the normalized grant. A compiled route is configuration,
+not a cached authorization decision.
+
+The proposed library surfaces are:
+
+| API                                                   | Caller and responsibility                                                                                                                                                                             |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `egress.forRequest(request).forward(bindingRef)`      | Trusted proxy integration: capture one authenticated, immutable operation and own the full check, resolve, inject, send, and response-policy sequence.                                                |
+| `resolve({ request, bindingRef, freshness })`         | Trusted adapters: resolve static or warm dynamic material through the same interface; return an opaque use-bound handle or `Denied`, `NotReady`, or `Unavailable`. Resolution does not permit a send. |
+| `authorizer.check({ identity, route, use, request })` | Trusted runtime to OCC authority: check the current execution and actual operation against policy. Repeat after awaited preparation, before send.                                                     |
+
+Binding request context into `forRequest` hides repeated arguments, not security
+checks. Identity and operation context come from the authenticated boundary,
+not caller assertions; a handle cannot authorize a different operation. GitHub
+repositories and permissions come from the admitted grant, while request
+classification verifies the actual repository and action. Static sources use
+the same checks even when no provider-specific token scope is needed.
+
+These are proposed library contracts; wire schemas and method names remain open.
+Agent code uses normal clients or placeholders and receives no material handle.
 
 ### Static credentials
 
