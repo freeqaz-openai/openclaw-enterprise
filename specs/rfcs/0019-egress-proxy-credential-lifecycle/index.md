@@ -106,9 +106,10 @@ prepared and authority is rechecked; existing narrower access may continue.
 A reduction takes effect for new admissions when committed, without waiting
 for old credentials to be replaced.
 
-**Open:** Should V1 use native IAM only, or admit external IAM implementations
-that can prove the same ordering? How does OCE learn that an external identity
-provider has disabled an Agent owner?
+**Open:** Should V1 require this ordering, or start with a fresh online check and
+explicitly accept the race between that check and dispatch? Should it use native
+IAM only, or admit external implementations? IdP offboarding synchronization is
+later work.
 
 The proxy must prevent direct bypass, bind policy to the actual destination and
 protocol authority, and remove Agent authentication before forwarding. Provider
@@ -256,9 +257,11 @@ distinct. See the existing [Credential Gateway Driver RFC](../0016-sandbox-crede
   Token Service configuration is not warm readiness. Keep the original owner,
   deadline, and cleanup obligation for an uncertain send, refresh, or clone.
   Do not replay a potentially dispatched effect without reconciliation.
-- **Agent offboarding:** if an Agent loses its last authorized owner, a
-  committed hold fences execution and protects retained data while parking
-  proceeds asynchronously. Unknown owner state is not confirmed owner loss.
+- **Agent offboarding:** when an operator disables or removes an owner in OCE,
+  automatically park an Agent that loses its last authorized owner. A committed
+  hold fences execution and protects retained data while parking proceeds
+  asynchronously. IdP offboarding synchronization is later work. Unknown owner
+  state is not confirmed owner loss.
   A team Agent with remaining owners does not park solely because one owner
   leaves. Report incomplete containment; only an authorized hold release can
   permit a new execution. An authorized fork copies readable content into

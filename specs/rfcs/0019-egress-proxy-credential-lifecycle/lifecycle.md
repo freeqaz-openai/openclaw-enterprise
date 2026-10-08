@@ -63,7 +63,9 @@ before ordinary retirement; emergency revocation may come first.
 
 ## Parking and forks
 
-Confirmed loss of the last authorized owner installs a hold and execution fence.
+When an operator disables or removes an owner in OCE, confirmed loss of the
+last authorized owner installs a hold and execution fence. Synchronizing
+external identity-provider offboarding is later work.
 Ordinary deployment, restart, repair, deletion, and garbage collection cannot
 bypass the hold or remove protected data. Parking is asynchronous: report
 `parking` until required stop and preservation evidence supports `parked`.
