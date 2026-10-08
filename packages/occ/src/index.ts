@@ -4934,7 +4934,7 @@ export class OpenClawController {
             "Plugin discovery is unavailable.",
           );
         }
-        return (authentication) => {
+        return (authentication, authorizeSend) => {
           if (
             authentication.accessToken === undefined &&
             authentication.credential === undefined &&
@@ -4948,7 +4948,7 @@ export class OpenClawController {
               ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
               ...(input.q === undefined ? {} : { q: input.q }),
             },
-            signal,
+            { authorizeSend, ...(signal === undefined ? {} : { signal }) },
           );
         };
       },
@@ -5162,7 +5162,7 @@ export class OpenClawController {
             "Plugin tool discovery is unavailable.",
           );
         }
-        return (authentication) => {
+        return (authentication, authorizeSend) => {
           if (
             authentication.accessToken === undefined &&
             authentication.credential === undefined &&
@@ -5170,38 +5170,50 @@ export class OpenClawController {
           ) {
             throw new PluginDiscoveryError("credentials_rejected");
           }
-          return driver.getCatalogPlugin!({ ...authentication, pluginId: input.pluginId }, signal);
+          return driver.getCatalogPlugin!(
+            { ...authentication, pluginId: input.pluginId },
+            { authorizeSend, ...(signal === undefined ? {} : { signal }) },
+          );
         };
       },
       recheck,
     );
   }
 
-  /**
-   * Rechecks Namespace plugin discovery grants after a stored credential's backend read and
-   * immediately before it is sent to the external catalog, as saved-Agent discovery does.
-   * Request-supplied or absent credentials have no read to race, so they skip the recheck.
-   */
+  /** Current Namespace and caller authority, including transient-credential discovery. */
   private async authorizeNamespacePluginDiscovery(
     principalId: string,
     namespaceId: string,
     credential: PluginDiscoveryCredential,
   ): Promise<void> {
-    const source = credential.secretRef ?? credential.oauthLogin;
-    if (source === undefined) {
-      return;
-    }
     await this.authorize(principalId, "create", { kind: "agent", id: namespaceId, namespaceId });
-    await this.authorize(principalId, "operate", source);
-    await this.read((state) => this.exactNamespace(state, namespaceId));
+    const source = credential.secretRef ?? credential.oauthLogin;
+    if (source !== undefined) {
+      await this.authorize(principalId, "operate", source);
+    }
+    await this.read(async (state) => {
+      const namespace = await this.exactNamespace(state, namespaceId);
+      if (namespace.status !== "ready") {
+        throw new NamespaceNotReadyError();
+      }
+      if (
+        credential.secretRef !== undefined &&
+        !(await state.secrets.findSecret(namespace.id, credential.secretRef.id))
+      ) {
+        throw new ScopeViolationError("The Secret does not belong to the exact Namespace.");
+      }
+    });
   }
 
   private async withPluginDiscoveryCredential<T>(
     principalId: string,
     namespaceId: string,
     credential: PluginDiscoveryCredential,
-    prepareDiscovery: () => (authentication: PluginDiscoveryAuthentication) => Promise<T>,
-    validateCurrent?: () => Promise<void>,
+    prepareDiscovery: () => (
+      authentication: PluginDiscoveryAuthentication,
+      authorizeSend: () => Promise<void>,
+    ) => Promise<T>,
+    validateCurrent: () => Promise<void>,
     scopeAgentId?: string,
   ): Promise<T> {
     const source = credential.secretRef ?? credential.oauthLogin;
@@ -5222,19 +5234,32 @@ export class OpenClawController {
       oauthCredential?: string,
     ): Promise<{ value: T } | { error: PluginDiscoveryError } | { validationError: unknown }> => {
       try {
-        await validateCurrent?.();
+        await validateCurrent();
       } catch (error) {
         // Return authorization and binding errors through the Secret callback so
         // secretOperation only sanitizes backend failures, not these exact checks.
         return { validationError: error };
       }
+      let validationFailure: { error: unknown } | undefined;
+      const authorizeSend = async () => {
+        try {
+          await validateCurrent();
+        } catch (error) {
+          // Preserve only errors from OCC's trusted check, never arbitrary provider errors.
+          validationFailure = { error };
+          throw new PluginDiscoveryError("unavailable");
+        }
+      };
       try {
-        const value = await discover({
-          ...(accessToken === undefined ? {} : { accessToken }),
-          ...(oauthCredential === undefined
-            ? {}
-            : { credential: { kind: "oauth", value: oauthCredential } }),
-        });
+        const value = await discover(
+          {
+            ...(accessToken === undefined ? {} : { accessToken }),
+            ...(oauthCredential === undefined
+              ? {}
+              : { credential: { kind: "oauth", value: oauthCredential } }),
+          },
+          authorizeSend,
+        );
         const serialized = JSON.stringify(value);
         const encodedToken =
           accessToken === undefined ? undefined : JSON.stringify(accessToken).slice(1, -1);
@@ -5247,6 +5272,9 @@ export class OpenClawController {
         }
         return { value };
       } catch (error) {
+        if (validationFailure !== undefined) {
+          return { validationError: validationFailure.error };
+        }
         return {
           error: new PluginDiscoveryError(
             error instanceof PluginDiscoveryError ? error.reason : "unavailable",
@@ -5350,14 +5378,14 @@ export class OpenClawController {
             "Plugin discovery is unavailable.",
           );
         }
-        return (authentication) =>
+        return (authentication, authorizeSend) =>
           driver.discoverCatalog!(
             {
               ...authentication,
               ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
               ...(input.q === undefined ? {} : { q: input.q }),
             },
-            signal,
+            { authorizeSend, ...(signal === undefined ? {} : { signal }) },
           );
       },
       input.oauthLogin,
@@ -5383,8 +5411,11 @@ export class OpenClawController {
             "Plugin tool discovery is unavailable.",
           );
         }
-        return (authentication) =>
-          driver.getCatalogPlugin!({ ...authentication, pluginId: input.pluginId }, signal);
+        return (authentication, authorizeSend) =>
+          driver.getCatalogPlugin!(
+            { ...authentication, pluginId: input.pluginId },
+            { authorizeSend, ...(signal === undefined ? {} : { signal }) },
+          );
       },
       input.oauthLogin,
     );
@@ -5394,7 +5425,10 @@ export class OpenClawController {
     principalId: string,
     namespaceId: string,
     agentId: string,
-    prepareDiscovery: () => (authentication: PluginDiscoveryAuthentication) => Promise<T>,
+    prepareDiscovery: () => (
+      authentication: PluginDiscoveryAuthentication,
+      authorizeSend: () => Promise<void>,
+    ) => Promise<T>,
     oauthLogin?: SecretReference,
   ): Promise<T> {
     if (oauthLogin !== undefined) {
@@ -5404,13 +5438,24 @@ export class OpenClawController {
         namespaceId,
         { oauthLogin },
         prepareDiscovery,
-        () => this.authorizeDeviceAuthorizationScope(principalId, namespaceId, agentId),
+        async () => {
+          await this.authorizeDeviceAuthorizationScope(principalId, namespaceId, agentId);
+          await this.authorize(principalId, "operate", oauthLogin);
+        },
         agentId,
       );
     }
     const first = await this.boundAgentPluginSecret(principalId, namespaceId, agentId);
     if (first === undefined) {
-      return this.withPluginDiscoveryCredential(principalId, namespaceId, {}, prepareDiscovery);
+      return this.withPluginDiscoveryCredential(
+        principalId,
+        namespaceId,
+        {},
+        prepareDiscovery,
+        async () => {
+          await this.boundAgentPluginSecret(principalId, namespaceId, agentId);
+        },
+      );
     }
     return this.withPluginDiscoveryCredential(
       principalId,
@@ -5418,8 +5463,7 @@ export class OpenClawController {
       { secretRef: { kind: "secret", id: first.id, namespaceId } },
       prepareDiscovery,
       async () => {
-        // The backend read crosses an async boundary. Recheck the Agent binding
-        // and both grants immediately before calling the external plugin service.
+        // Recheck after credential access and again before every provider send.
         const current = await this.boundAgentPluginSecret(principalId, namespaceId, agentId);
         if (
           current === undefined ||
@@ -5448,6 +5492,9 @@ export class OpenClawController {
     await this.authorize(principalId, "update", resource);
     return this.read(async (state) => {
       const namespace = await this.exactNamespace(state, namespaceId);
+      if (namespace.status !== "ready") {
+        throw new NamespaceNotReadyError();
+      }
       const agent = await state.agents.findAgent(namespace.id, agentId);
       if (agent === undefined) {
         throw new ScopeViolationError(
