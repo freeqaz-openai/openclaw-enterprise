@@ -1,0 +1,45 @@
+---
+title: "Proposed credential architecture"
+config:
+  theme: base
+  htmlLabels: true
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    primaryTextColor: "#25364A"
+    lineColor: "#748798"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    useMaxWidth: false
+    curve: linear
+    nodeSpacing: 15
+    rankSpacing: 24
+    padding: 10
+    diagramPadding: 12
+---
+flowchart TB
+  Setup["<b>Operator</b><br/>Configure sources and grants"]
+  Control["<b>Control plane</b><br/>Authorize each use"]
+  Store["<b>Secret store</b><br/>Static and refresh inputs"]
+  Static["<b>Secret Driver</b><br/>Read current values"]
+  Dynamic["<b>Token Service</b><br/>Warm tokens in background"]
+  Agent["<b>Agent or bootstrap</b><br/>Egress with identity"]
+  Gateway["<b>Egress Proxy</b><br/>Authorize, inject, send"]
+  Provider["<b>Provider</b><br/>GitHub, inference"]
+  Setup -.-> Control
+  Control -.-> Dynamic
+  Agent -.-> Gateway
+  Gateway -.-> Control
+  Gateway -.-> Static
+  Gateway -.-> Dynamic
+  Static -.-> Store
+  Dynamic -.-> Static
+  Gateway -.-> Provider
+  class Setup,Agent,Provider external
+  class Store external
+  class Gateway action
+  class Control,Static,Dynamic api
+  classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
+  classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
+  classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px
+  linkStyle default stroke:#748798,stroke-width:1px
