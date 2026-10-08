@@ -40,13 +40,18 @@ gate, not authorization. Bootstrap and Compute retain cleanup of partial work.
 _Proposed credentialed request. [Editable source](assets/request-caching.mmd)._
 
 The proxy captures the operation, checks its current authority, and selects one
-exact binding. For static material it reads the current Secret or an eligible
-cache entry. For dynamic material it reads an already-warm token; a miss does
-not issue or refresh one. After awaited preparation, the proxy obtains a final
-OCC check for the captured operation and then forwards. An authority partition,
-denial, or unusable material refuses the operation. The provider response follows
-trusted provider-specific handling. Credential-free egress skips material lookup
-but still needs the final check.
+exact admitted route and, when needed, binding. For static material it reads the
+current Secret or an eligible cache entry. For dynamic material it reads an
+already-warm token; a miss does not issue or schedule refresh. After awaited
+preparation, the sender obtains a final OCC check for the exact execution, route,
+grant, operation, and selected nonsecret credential identity and version.
+Credential-free egress checks the admitted route and grant and explicitly records
+no material. Credential bytes do not go to policy.
+
+The trusted sender enforces the short send-start deadline and original absolute
+operation deadline. Their values and time protocol are open. An authority
+partition, denial, or unusable material refuses the operation. The provider
+response follows trusted provider-specific handling.
 
 ## 4. Withdraw and recover
 
@@ -56,23 +61,26 @@ _Proposed phase. [Editable source](assets/revocation-recovery.mmd)._
 
 A check that sees a committed withdrawal denies the removed access. A check
 that races the withdrawal may still permit a send. An underway finite operation
-may finish by its original deadline; cancellation is best effort. Uncertain
-provider effects and cleanup remain with their original owner. Stopping or
-replacing a local process does not prove an upstream effect settled. For
-rotation, establish replacement adoption and settle old-key use before ordinary
-retirement; emergency revocation may come first.
+may continue until its original deadline; cancellation is best effort and a
+local timeout does not prove provider cancellation. Uncertain provider effects
+and cleanup remain with their original owner. Stopping or replacing a local
+process does not prove an upstream effect settled. For rotation, establish
+replacement adoption and settle old-key use before ordinary retirement;
+emergency revocation may come first.
 
 ## Parking and forks
 
 When an operator disables or removes an owner in OCE, confirmed loss of the
-last authorized owner installs a hold and execution fence. Synchronizing
-external identity-provider offboarding is later work.
+last authorized owner installs a hold and execution fence for new admissions,
+subject to the RFC's V1 check-to-send race. A team Agent with remaining owners
+does not park solely because one leaves. Report incomplete containment.
+Synchronizing external identity-provider offboarding is later work.
 Ordinary deployment, restart, repair, deletion, and garbage collection cannot
 bypass the hold or remove protected data. Parking is asynchronous: report
 `parking` until required stop and preservation evidence supports `parked`.
-Unknown directory state is not confirmed owner loss. Platform-owned cleanup
-continues for the exact accepted work even if its requester loses access; hold
-release requires current authorization and a fresh execution admission.
+Unknown owner or directory state is not confirmed owner loss. Platform-owned
+cleanup continues for the exact accepted work even if its requester loses access;
+hold release requires current authorization and a fresh execution admission.
 
 An authorized reader may fork the declared readable artifact set from an
 immutable captured version. Recheck source-read and destination-create authority
