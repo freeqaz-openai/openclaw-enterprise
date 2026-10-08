@@ -42,11 +42,11 @@ _Proposed credentialed request. [Editable source](assets/request-caching.mmd)._
 The proxy captures the operation, checks its current authority, and selects one
 exact binding. For static material it reads the current Secret or an eligible
 cache entry. For dynamic material it reads an already-warm token; a miss does
-not issue or refresh one. After awaited preparation, the proxy obtains final
-OCC admission for the captured operation and then forwards. An authority
-partition, denial, or unusable material refuses the operation. The provider
-response follows trusted provider-specific handling. Credential-free egress
-skips material lookup but still needs final admission.
+not issue or refresh one. After awaited preparation, the proxy obtains a final
+OCC check for the captured operation and then forwards. An authority partition,
+denial, or unusable material refuses the operation. The provider response follows
+trusted provider-specific handling. Credential-free egress skips material lookup
+but still needs the final check.
 
 ## 4. Withdraw and recover
 
@@ -54,12 +54,13 @@ skips material lookup but still needs final admission.
 
 _Proposed phase. [Editable source](assets/revocation-recovery.mmd)._
 
-Once a withdrawal commits, later admissions must reflect it. A previously
-admitted finite operation may finish by its original deadline; cancellation is
-best effort. Uncertain provider effects and cleanup remain with their original
-owner. Stopping or replacing a local process does not prove an upstream effect
-settled. For rotation, establish replacement adoption and settle old-key use
-before ordinary retirement; emergency revocation may come first.
+A check that sees a committed withdrawal denies the removed access. A check
+that races the withdrawal may still permit a send. An underway finite operation
+may finish by its original deadline; cancellation is best effort. Uncertain
+provider effects and cleanup remain with their original owner. Stopping or
+replacing a local process does not prove an upstream effect settled. For
+rotation, establish replacement adoption and settle old-key use before ordinary
+retirement; emergency revocation may come first.
 
 ## Parking and forks
 

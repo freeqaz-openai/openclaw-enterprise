@@ -85,31 +85,30 @@ For every supported outbound operation, including credential-free egress:
    needed, it resolves the binding; otherwise it skips the material read.
    Ambiguous routes, unsupported operations, and insufficient scope fail
    closed; the request cannot select another backend or widen its grant.
-3. After transformations and awaited preparation, OCC admits the authenticated
-   sender's exact execution, versioned route, grant, material version when
-   applicable, and immutable operation, including its destination and
-   policy-relevant content. The single-use admission permits one send within
-   its short start deadline. A redirect, retry, or new operation on a reused
-   connection needs a new admission; recovery cannot recreate a send permit.
+3. After transformations and awaited preparation, the authenticated sender
+   makes a fresh OCC check for the exact execution, versioned route, grant,
+   material version when applicable, and immutable operation, including its
+   destination and policy-relevant content. A successful check permits one
+   send within its short start deadline. A redirect, retry, or new operation on
+   a reused connection needs a new check; recovery cannot recreate permission
+   to send.
 
-A reduction or hold committed before final admission must be reflected in that
-decision. Every relevant identity, grant, source, and execution change must
-participate in the same ordering. If OCC or current authority is unavailable,
-the proxy refuses new operations, including cache hits. This trades availability
-for simpler revocation. An admitted finite operation may finish by its original,
-enforced absolute deadline; cancellation is best effort and cannot undo provider
-effects. Renewable stream leases are future work. Upstream identity-event
-delivery time is separate from OCC's ordering once a change commits.
+V1 does not cache allows. If OCC or current authority is unavailable, the proxy
+refuses new operations, including credential cache hits. A check can race with a
+committed reduction or hold: an already-checked operation may still start after
+revocation is acknowledged. This is in addition to the risk that a finite
+operation already underway can continue until its original, enforced deadline.
+Cancellation is best effort and cannot undo provider effects. Ordered admission
+and renewable stream leases are follow-up work; external IdP offboarding can
+also reach OCE later than the original event.
 
 An approved scope expansion activates after any required dynamic material is
 prepared and authority is rechecked; existing narrower access may continue.
-A reduction takes effect for new admissions when committed, without waiting
-for old credentials to be replaced.
+A reduction updates the authority checked for subsequent operations without
+waiting for old credentials to be replaced, subject to the race above.
 
-**Open:** Should V1 require this ordering, or start with a fresh online check and
-explicitly accept the race between that check and dispatch? Should it use native
-IAM only, or admit external implementations? IdP offboarding synchronization is
-later work.
+**Open:** Should V1 use native IAM only, or also admit external implementations?
+What start and operation-duration limits can each supported transport enforce?
 
 The proxy must prevent direct bypass, bind policy to the actual destination and
 protocol authority, and remove Agent authentication before forwarding. Provider
@@ -128,7 +127,7 @@ capabilities, and enforcement tests. DNS needs its own design.
 [Responses WebSocket](../../../docs/reference/harness-execution.md) for model
 calls. Its [pinned release](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/core/src/client.rs#L1918-L1925)
 supports HTTP/SSE fallback on an initial `426` handshake. Can we qualify that
-path, and can OpenShell enforce final admission after credential preparation
+path, and can OpenShell perform the final online check after credential preparation
 and before send?
 
 ## Credential resolution
@@ -195,8 +194,8 @@ proposes a Codex receiver, not the Token Service supplier.
 
 **Static inference:** an owner registers a source and grants both the caller and
 Agent principal use. The owner lists it in `credentialSources` and selects it
-with `harnessAuth`. On a request, the proxy resolves the key, obtains final OCC
-admission, injects it, and forwards.
+with `harnessAuth`. On a request, the proxy resolves the key, obtains a final OCC
+check, injects it, and forwards.
 
 **GitHub bootstrap:** Token Service uses a GitHub App private key to sign an
 App JWT and exchanges it for an installation token scoped to the admitted
@@ -234,11 +233,11 @@ Agent and let accepted cleanup finish after source-use permission is removed.
 The inspected OpenShell [middleware](https://github.com/NVIDIA/OpenShell/blob/6144a7beb92e32e1fd41c798aec7aaf6d9ff0b29/crates/openshell-supervisor-network/src/l7/relay.rs#L1981-L2108)
 precedes credential preparation, and its
 [token-grant miss](https://github.com/NVIDIA/OpenShell/blob/6144a7beb92e32e1fd41c798aec7aaf6d9ff0b29/crates/openshell-supervisor-network/src/token_grant.rs#L247-L286)
-can issue a token; neither establishes final admission or a warm-only read.
+can issue a token; neither establishes the final online check or a warm-only read.
 
 Qualify the connected path with static inference, GitHub preclone, Codex OAuth,
 and a custom dynamic type. Verify cross-Agent and cross-Namespace denial,
-ordered reductions and partitions, protocol and bypass handling, rotation,
+revocation races and partitions, protocol and bypass handling, rotation,
 cache bounds, background refresh, bounded startup, and cleanup after uncertainty.
 Source review, installed runtime evidence, and live-provider evidence are
 distinct. See the existing [Credential Gateway Driver RFC](../0016-sandbox-credential-injection.md),
@@ -250,18 +249,19 @@ distinct. See the existing [Credential Gateway Driver RFC](../0016-sandbox-crede
 - **Static rotation:** establish replacement visibility and adoption by every
   serving proxy, and resolve old-key in-flight use, before ordinary
   retirement. Emergency provider revocation may precede adoption.
-- **Withdrawal:** deny newly unauthorized operations, including cache hits.
-  Previously admitted finite operations can run until their original deadlines;
-  local cancellation does not prove upstream effects have stopped.
+- **Withdrawal:** checks that observe the reduction deny unauthorized operations,
+  including cache hits. A check that races the reduction may still permit a send;
+  an underway finite operation can run until its original deadline. Local
+  cancellation does not prove upstream effects have stopped.
 - **Restart or uncertainty:** a cold static read has no stale fallback; restored
   Token Service configuration is not warm readiness. Keep the original owner,
   deadline, and cleanup obligation for an uncertain send, refresh, or clone.
   Do not replay a potentially dispatched effect without reconciliation.
 - **Agent offboarding:** when an operator disables or removes an owner in OCE,
   automatically park an Agent that loses its last authorized owner. A committed
-  hold fences execution and protects retained data while parking proceeds
-  asynchronously. IdP offboarding synchronization is later work. Unknown owner
-  state is not confirmed owner loss.
+  hold blocks new execution and protects retained data while parking proceeds
+  asynchronously; the check-to-send race above still applies. IdP offboarding
+  synchronization is later work. Unknown owner state is not confirmed owner loss.
   A team Agent with remaining owners does not park solely because one owner
   leaves. Report incomplete containment; only an authorized hold release can
   permit a new execution. An authorized fork copies readable content into

@@ -49,7 +49,7 @@ sequenceDiagram
       S-->>G: Usable token or failure
     end
     alt Usable scoped material
-      G->>C: Final admission for captured operation
+      G->>C: Final online check for captured operation
       C-->>G: Allow, deny, or unavailable
       alt Allow
         G->>P: Strip bearer, inject credential, forward

@@ -32,10 +32,10 @@ sequenceDiagram
   participant R as Cleanup /<br/>credential owner
   O->>C: Withdraw source access or stop revision
   C-->>O: Withdrawal committed
-  G->>C: Admit next operation
+  G->>C: Check a subsequent operation
   C-->>G: Deny or unavailable
-  Note over C,G: New unauthorized work is blocked
-  Note over G,R: Admitted finite work may finish<br/>by its original deadline
+  Note over C,G: A check that sees withdrawal denies access
+  Note over G,R: An earlier check can race withdrawal#59;<br/>finite work may finish by its deadline
   C-->>O: Status and outstanding cleanup
   C->>R: Retain unresolved cleanup obligations
   Note over C,R: Original owner retains uncertain effects
