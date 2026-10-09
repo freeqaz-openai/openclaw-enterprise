@@ -29,7 +29,7 @@ sequenceDiagram
   participant O as Owner
   participant C as OCC
   participant S as Trusted sender
-  participant R as Original work owner
+  participant R as Responsible owner
   O->>C: Withdraw access
   C-->>O: Withdrawal committed
   S->>C: Check next operation
@@ -43,3 +43,9 @@ sequenceDiagram
   Note over S,R: No blind replay<br/>Preserve late outcomes<br/>Cleanup remains owed
   R-->>C: Resolved or still-pending evidence
   C-->>O: Status and outstanding cleanup
+  opt Separate warm-token rejection feedback
+    S->>R: Authenticated rejection<br/>Source generation, grant, token version
+    Note over S,R: For this feedback, the owner is the lifecycle owner<br/>Classify credential rejection#59; no automatic sender retry
+    R->>R: Refresh under current authority<br/>or mark unhealthy in background
+    Note over S,R: Late rejection of N cannot invalidate N+1<br/>Agent / bootstrap lookup never schedules this work
+  end

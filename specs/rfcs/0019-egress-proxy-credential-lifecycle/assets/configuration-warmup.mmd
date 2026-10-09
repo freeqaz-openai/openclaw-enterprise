@@ -27,20 +27,27 @@ config:
 ---
 sequenceDiagram
   participant C as OCC
-  participant L as Lifecycle owner<br/>(Token Service)
+  participant L as Token Service<br/>lifecycle owner
   participant I as Provider issuer
   participant P as Provider
-  C->>L: Admitted source generation and grant
+  C->>L: Configure admitted source and grant<br/>via CredentialRefreshDriver
   L-->>C: Configuration accepted
   Note over C,L: Accepted ≠ warm
   Note over L,P: One owner per family#59; prepare even without requests
-  L->>L: Fence before<br/>rotating-input use
+  L->>L: Lock / fence shared refresh<br/>Recheck admitted state<br/>Persist uncertainty marker
   Note over L,P: Permitted inputs via Secret Driver<br/>Canonical replacement must not be<br/>overwritten by the bootstrap seed
+  Note over L,I: Check issuer authority<br/>before input use<br/>or provider I/O
   L->>I: Prepare for the exact admitted grant
   I->>P: Obtain or renew provider material
   P-->>I: Material or failure
   I->>I: Validate grant<br/>and expiry
   I-->>L: Validated material or failure
-  L->>L: Persist replacement<br/>before readiness
-  L-->>C: Warm readiness or failure
+  alt Validated material
+    L->>L: Persist replacement<br/>before warm readiness
+    L-->>C: Warm readiness
+  else Failed or uncertain preparation
+    L->>L: Retain attempt evidence<br/>Reconcile or reauthorize
+    L-->>C: Not ready#59; report failure
+  end
   Note over C,I: Required material not warm within startup bound:<br/>block startup and report status
+  Note over C,L: Authorized management may request preparation<br/>through this same owner#59; no second refresher

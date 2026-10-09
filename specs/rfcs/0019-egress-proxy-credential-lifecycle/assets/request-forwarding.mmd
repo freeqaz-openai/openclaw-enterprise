@@ -26,12 +26,12 @@ config:
     wrap: true
 ---
 sequenceDiagram
-  participant A as Caller
+  participant A as Agent /<br/>bootstrap
   participant S as Trusted sender
   participant C as OCC
   participant P as Provider
-  Note over S,P: After preparation: actual operation is immutable
-  S->>C: Fresh online check
+  Note over S,P: After resolution and transformations:<br/>actual operation is immutable
+  S->>C: 2. Fresh authority before send
   Note over S,P: Caller, versioned route, grant and actual operation<br/>Selected material identity/version or explicit absence
   C-->>S: Allow, deny or unavailable
   Note over S,P: Policy receives no credential bytes<br/>Do not substitute another operation or material
@@ -39,8 +39,10 @@ sequenceDiagram
     S->>S: Recheck usability,<br/>send-start and original<br/>operation deadlines
     S->>P: Strip Agent auth,<br/>inject if needed, send once
     P-->>S: Response, error or stream
+    S->>S: Apply provider response policy<br/>Headers, body, trailers, encodings
     S-->>A: Safe response,<br/>redaction or refusal
   else Denied, unavailable, unusable or too late
     S-->>A: Refuse before send
   end
   Note over A,P: Each subrequest, redirect, retry or new operation repeats the checks<br/>Resolve again when needed#59; no provider material or handles enter the Agent
+  Note over S,P: Rejection or unsafe response after dispatch<br/>does not prove no effect#59; no automatic retry

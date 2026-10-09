@@ -1,0 +1,60 @@
+---
+title: "Proposed authorized management preparation"
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Arial, sans-serif"
+    fontSize: "16px"
+    actorBkg: "#EDF2F7"
+    actorBorder: "#879AB0"
+    actorTextColor: "#25364A"
+    noteBkgColor: "#F7F1E5"
+    noteBorderColor: "#B3A078"
+    noteTextColor: "#344054"
+    signalColor: "#748798"
+    signalTextColor: "#25364A"
+  sequence:
+    useMaxWidth: false
+    actorMargin: 18
+    width: 116
+    height: 44
+    diagramMarginX: 12
+    diagramMarginY: 12
+    messageMargin: 16
+    noteMargin: 8
+    mirrorActors: true
+    wrap: true
+---
+sequenceDiagram
+  participant M as Trusted<br/>management
+  participant C as OCC
+  participant L as Designated<br/>lifecycle owner
+  participant P as Provider
+  Note over M,C: Authenticated management caller and admitted purpose<br/>Agent flags and bootstrap delegation cannot select this path
+  M->>C: 1. Current authority before access
+  Note over M,C: Bind caller / user, tenant, source,<br/>purpose, grant, destination and operation
+  C-->>M: Allow, deny or unavailable
+  break Denied or authority unavailable
+    Note over M,C: Refuse before material access
+  end
+  M->>L: Request usable material<br/>within original deadline
+  Note over L,P: Reuse or prepare through the same lifecycle owner<br/>Owner authorizes its issuer operations
+  L->>L: Reuse if eligible<br/>Otherwise coordinated preparation
+  Note over M,L: Roots stay confined#59; no second refresher<br/>A failed retrieval may follow a completed refresh
+  L-->>M: Usable runtime material + evidence, or failure
+  break Failed, withdrawn, unusable or too late
+    Note over M,L: Refuse use#59; retain uncertain attempt
+    Note over M,L: Reconcile refresh effects#59; no blind replay
+  end
+  M->>M: Freeze actual operation and material
+  M->>C: 2. Fresh authority after preparation
+  Note over M,C: Check actual operation, versioned route and grant,<br/>material identity / version#59; no credential bytes
+  C-->>M: Allow, deny or unavailable
+  alt Allowed, material usable, within original deadline
+    M->>P: Inject material#59; send once
+    P-->>M: Response or failure
+    M->>M: Apply response policy<br/>Return sanitized metadata only
+  else Denied, unavailable, unusable or too late
+    M->>M: Refuse before provider send
+  end
+  Note over M,P: No provider tokens or handles to Agent or UI<br/>Each provider operation repeats both checks<br/>No automatic sender retry

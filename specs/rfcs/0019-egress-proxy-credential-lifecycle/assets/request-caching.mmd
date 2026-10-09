@@ -26,20 +26,28 @@ config:
     wrap: true
 ---
 sequenceDiagram
-  participant A as Caller
+  participant A as Agent /<br/>bootstrap
   participant S as Trusted sender
   participant C as OCC
   participant R as Credential<br/>Resolver
   A->>S: Authenticated operation
   S->>S: Capture immutable operation<br/>Select route and grant
-  S->>C: Check caller, operation,<br/>versioned route and grant
+  S->>C: 1. Current authority before access<br/>Caller, operation, versioned route and grant
   C-->>S: Allow, deny or unavailable
-  Note over S,C: Deny or unavailable: stop here
+  break Denied or authority unavailable
+    Note over A,C: Refuse before material access
+    S-->>A: Refuse before material access
+  end
   opt Allowed credentialed operation
     S->>R: Resolve admitted binding for this use
-    R-->>S: Use-bound handle or refusal
-    Note over S,R: Refusal stops the operation<br/>Cold dynamic material never triggers preparation
+    R-->>S: Use-bound handle or typed refusal
+    Note over S,R: Cold / expired dynamic material: NotReady<br/>No issuance, signing, refresh or scheduling<br/>No dynamic proxy cache or fallback
+    break Denied, NotReady or Unavailable
+      Note over A,C: Refuse before send
+      S-->>A: Refuse before send
+    end
   end
   Note over S,C: Credential-free egress skips resolution,<br/>not authorization
-  S->>S: Complete transformations<br/>and awaited preparation<br/>Freeze actual operation
+  S->>S: Complete transformations<br/>Freeze actual operation
   Note over S,C: Continue to final check<br/>A handle is not send authority
+  Note over A,R: Management preparation has separate authorization<br/>Agent flags and bootstrap delegation cannot select it

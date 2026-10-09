@@ -47,19 +47,35 @@ ServicePrincipal and a separate bearer for an individual execution. Each Agent
 must be authorized to use a binding, even when the source is shared.
 
 Trusted bootstrap is a separate caller with authenticated delegation limited to
-the execution and configured repository. It need not traverse the Agent's
-proxy. Its clone and cleanup duties are in [repository preparation](lifecycle.md#2-prepare-the-optional-repository).
+the execution and configured repository. It need not traverse the Agent's proxy.
+Its request-path resolution is warm-only, and its delegation does not grant
+management preparation. Its clone and cleanup duties are in
+[repository preparation](lifecycle.md#2-prepare-the-optional-repository).
 
-Control-plane discovery is also a separate authenticated caller, not a
-fabricated Agent execution. Its authority is limited to the exact Installation
-and Namespace, source, purpose, operation, scope and destination, plus any
-applicable initiating-user and saved-binding rights. It can use a bounded
-trusted callback over warm material and minimum account metadata, or a trusted
-service can make the call. It checks current authority after resolution and
-before each provider send; it receives no refresh roots and starts no second
-refresher. Sanitize results and record secret-free audit of caller, initiating
-principal, source and grant, destination, purpose and outcome. Denial,
-withdrawal, unavailable authority or cold or expired material refuses use.
+Control-plane configuration and discovery use a separate authenticated caller.
+Its authority is limited to the exact Installation and Namespace, source,
+purpose, operation, scope and destination, plus applicable initiating-user and
+saved-binding rights. When explicitly authorized, it may ask the designated
+lifecycle owner to prepare or refresh material. Authorized trusted code may then
+use the material in a bounded callback to obtain minimum account metadata, or
+make the provider call in a trusted service. OCC checks current authority before
+material access and again after preparation, before each provider send. The
+lifecycle owner retains authority checks for its issuer operations.
+
+Retrieval supplies usable runtime material only to authorized trusted code. It
+exports no signing or refresh roots and starts no second refresher. Provisioning
+roots to the lifecycle owner is a separate authorized operation. Provider tokens
+and handles do not go to the Agent or UI; results are sanitized.
+
+Management authority comes from the authenticated control-plane boundary and
+admitted purpose, never an Agent-selected flag or request field. It does not
+relax the warm-only request-path Resolver. Record a secret-free audit of caller,
+initiating principal, source and grant, destination, purpose and outcome. Denial,
+withdrawal, unavailable authority, failed preparation or material still unusable
+within the original deadline refuses use. A failed or cancelled retrieval does
+not prove that refresh had no effect; retain uncertain attempts without blind
+replay. [Management retrieval](lifecycle.md#management-preparation-and-retrieval)
+describes the source integration and its limits.
 
 ## Authorize each operation
 
@@ -83,6 +99,10 @@ operation or material after the check. Changed routes or grants require
 re-admission and repeated checks. Cached allows cannot substitute for either
 check, even with cached material.
 
+Both checks remain required. Whether their transport can reduce call count
+without weakening either check remains open; this RFC grants no cached-allow or
+atomic-revocation exception.
+
 The sender rechecks material usability and sends once. Each HTTP subrequest,
 redirect, retry or new operation on a reused connection repeats authorization
 and any required resolution. A finite short send-start deadline and the original
@@ -91,20 +111,26 @@ Deadline values, time protocol and transport enforcement remain open.
 
 ## Resolution and custody
 
-The resolver accepts admitted binding and operation context and returns a
-use-bound, single-use handle to trusted code or `Denied`, `NotReady` or
+The request-path Resolver serves static and dynamic material through one
+contract. It accepts an admitted binding and operation context and returns a
+use-bound, single-use handle to trusted code, or `Denied`, `NotReady` or
 `Unavailable`. A handle conveys no authority to send. Material version can
 change independently of configuration generation. The implementation must
 provide nonsecret identity, version and expiry evidence for the final check and
 dispatch; its representation and verification remain open.
 
-Dynamic token reuse is confined behind the resolver by source generation,
+Dynamic token reuse is confined behind the Resolver by source generation,
 normalized grant and isolation boundary. A narrower grant cannot borrow a
-broader token. Every credentialed operation resolves again. There is no dynamic
-token push, reusable proxy-side cache or fallback, and static stale grace does
-not apply. A healthy resolver may serve eligible unexpired material during an
-issuer outage; resolver failure refuses use. Cold or expired material yields
-`NotReady` without request-time issuance, signing, refresh or scheduling.
+broader token. Every credentialed Agent or bootstrap operation resolves again.
+There is no dynamic token push, reusable proxy-side cache or fallback, and static
+stale grace does not apply. A healthy Resolver may serve eligible unexpired
+material during an issuer outage; Resolver failure refuses use. For Agent and
+bootstrap requests, cold or expired dynamic material yields `NotReady` without
+request-time issuance, signing, refresh or scheduling. Separately authorized
+management preparation does not change that lookup contract or permit proxy
+fallback. Authenticated rejection feedback can prompt background recovery through
+the lifecycle owner; it does not make lookup schedule refresh or permit an
+automatic sender retry. See [withdrawal and recovery](lifecycle.md#4-withdraw-and-recover).
 
 Source policy must permit material at the trusted sender, and its implementation
 must qualify that custody. Registering a refresh source does not itself authorize
@@ -116,6 +142,12 @@ forwarding. Static freshness and typed failures are specified in
 [live Secret cutover](lifecycle.md#live-secret-cutover); rotating input custody,
 fencing and durable replacement are specified in
 [withdrawal and recovery](lifecycle.md#4-withdraw-and-recover).
+
+Admitted custody policy and runtime qualification are RFC requirements. The
+inspected #1749 source head `1c6ac12f` separates refresh inputs from Gateway registration, while
+#4357 permits operator retrieval of selected runtime credentials. Those code
+boundaries do not establish a general custody-policy mechanism or authorize
+export to Agents; see [implementation evidence](lifecycle.md#implementation-discovery-and-qualification).
 
 ## Protect responses
 

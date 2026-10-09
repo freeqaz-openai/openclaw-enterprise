@@ -8,66 +8,77 @@ status: Proposed
 
 - **ID:** RFC-0019
 - **Created:** 2026-10-06
-- **Updated:** 2026-10-08
+- **Updated:** 2026-10-09
 - **RFC PR:** [#1530](https://github.com/openclaw/openclaw-enterprise/pull/1530)
 
 ## Problem and proposal
 
-Agents need to use providers such as GitHub and inference services without
-managing their credentials. GitHub App tokens need preparation and renewal;
-static inference credentials need to follow Secret changes. Trusted discovery
-and repository setup may also need provider access before an Agent runs.
+Agents need GitHub, inference services and other providers without receiving
+credentials. Dynamic credentials need renewal; static credentials need to
+follow Secret changes. Repository setup and trusted discovery may also need
+provider access before an Agent runs.
 
 Today, the [static credential source workflow](../../../docs/reference/credential-sources.md#update-a-source)
 copies a value into the gateway. Replacing it requires a source update and
-redeployment for running Agents to use the replacement.
+redeployment.
 
-This RFC proposes a trusted sender that mediates Agent egress, checks current
-authority and injects provider material outside the Agent. A shared resolver
-selects static material or a warm dynamic token. A lifecycle owner prepares
-dynamic tokens in the background. Admission of a static Secret reference
-authorizes continuing reads, so a later value change needs no source update or
-Agent redeployment. The design supports multiple backends and deployment
-profiles; it is proposed, not implemented or qualified.
+This RFC proposes a trusted sender that checks authority and injects credentials
+outside the Agent. One Resolver serves static material and warm dynamic tokens.
+A lifecycle owner prepares tokens even while Agents are idle. Admission of a
+static Secret reference authorizes continuing reads without a source update or
+Agent redeployment when the value changes.
+
+The selected scope is composable contracts, with OpenShell as the first
+composition to implement and qualify. The complete request path is proposed.
 
 <a id="roles-and-deployment"></a>
 
 ## Architecture
 
 An owner configures a source and grants an Agent permission to use it. The
-OpenClaw Control Plane (OCC) admits the configuration. A trusted sender mediates
-each operation, including egress that needs no credential.
+OpenClaw Control Plane (OCC) admits the configuration. A network sandbox controls
+traffic; a trusted sender mediates operations, including credential-free traffic.
 
 ![Proposed Agent request path](assets/overview.svg)
 
-_Proposed request; dashed arrows are interactions. OCC checks before resolution
-and again before send. The proxy is the trusted sender and protects responses.
+_Proposed request path. Network enforcement and credential injection are separate
+roles; the Egress Proxy is the trusted sender. OCC checks before material access
+and again before send, including credential-free egress.
 [Editable diagram](assets/overview.mmd); [lifecycle](lifecycle.md);
 [security model](security.md)._
 
 | Logical role                    | Responsibility                                                                    |
 | ------------------------------- | --------------------------------------------------------------------------------- |
 | OCC                             | Admit sources, bindings, routes and grants; decide current authority.             |
+| Network sandbox                 | Enforce network allow/deny and interception, including credential-free traffic.   |
 | Egress Proxy / trusted sender   | Capture, authorize and forward operations; inject material and protect responses. |
 | Credential Resolver             | Select static material or a scoped warm token for an admitted use.                |
 | Secret Driver                   | Read referenced static values and lifecycle inputs.                               |
 | Token Service / lifecycle owner | Prepare, renew and recover each dynamic credential family.                        |
 | Provider issuer                 | Obtain provider-specific material and validate its scope and expiry.              |
 
-These are logical responsibilities, not required processes. One OpenShell
-adapter could implement several roles. Each credential family has one lifecycle
-owner; an issuer hook must not create a second refresh loop. Custody can be
-OCE-managed or delegated, subject to source policy and qualified implementation
-capabilities. The Egress Proxy Driver configures and observes enforcement; the
-Credential Gateway Driver registers sources and attaches revisions. The Agent's
-OpenClaw Gateway is separate.
+These roles do not prescribe processes or new wire APIs. The network sandbox
+maps to the networking facet of `SandboxDriver`; CredentialGateway maps to
+`CredentialGatewayDriver` source registration and revision attachment; and
+CredentialRefresh maps to `CredentialRefreshDriver` configuration, rotation,
+status and removal, merged in [#1749](https://github.com/openclaw/openclaw-enterprise/pull/1749).
+The Drivers manage capabilities; they do not provide the complete proposed
+request path. Network permission alone does not grant credential authority.
+
+One OpenShell adapter may fulfill several roles; no new `EgressProxyDriver`,
+separate Token Service process or general middleware registry is required. Each
+credential family has one lifecycle owner. Custody can be OCE-managed or
+delegated under admitted policy and qualified capabilities. Current adapter
+Kubernetes and same-Backend guards remain until replacement integration exists;
+they are not universal requirements. The Agent's OpenClaw Gateway is separate.
 
 ![Proposed credential sources and background preparation](assets/credential-architecture.svg)
 
-_Dashed interactions connect logical roles, which may share one OpenShell adapter.
-OpenShell may own the background loop with an OCE issuer hook. Bootstrap and
-discovery are separate authenticated trusted callers outside the Agent proxy.
-[Editable diagram](assets/credential-architecture.mmd)._
+_Proposed sources and background renewal. Token Service names a role, configured
+through `CredentialRefreshDriver`; OpenShell may own the loop with the illustrated
+GitHub issuer hook. Request-path lookup never starts preparation.
+[Management retrieval](lifecycle.md#management-preparation-and-retrieval) is
+separately authorized. [Editable diagram](assets/credential-architecture.mmd)._
 
 <a id="examples-and-startup"></a>
 
@@ -98,16 +109,31 @@ other supported egress:
 1. **Capture.** The sender authenticates the caller and selects the admitted
    route and grant for the operation.
 2. **Authorize.** OCC checks current authority before material access.
-3. **Resolve.** If needed, the resolver selects material for this use. A handle
+3. **Resolve.** If needed, the Resolver selects material for this use. A handle
    is not permission to send.
-4. **Check again.** After preparation, OCC checks the actual immutable operation
-   and selected material identity and version, or the absence of material.
+4. **Check again.** OCC checks the actual immutable operation and selected
+   material identity and version, or the absence of material, after resolution.
 5. **Send.** The sender rechecks usability, injects any material, sends once and
    applies provider-specific response policy.
 
 A redirect, retry or new operation repeats the checks and any needed resolution.
 Unavailable authority or resolution refuses use. The [security model](security.md#authorize-each-operation)
 specifies the check inputs, response rules and accepted check-to-send race.
+Both OCC checks remain required; their call count and transport shape remain open.
+
+### Authorized management preparation
+
+An authenticated, explicitly authorized control-plane configuration or
+discovery caller may ask the designated lifecycle owner to prepare or refresh
+material. OCC checks current authority before access and again after preparation,
+before provider I/O. The caller's purpose, source, grant, destination and
+applicable user rights remain bound. Only trusted authorized code may receive
+usable runtime material; retrieval exports no signing or refresh roots, and
+neither Agent nor UI receives provider material. An Agent cannot select this
+path, and it creates no second refresher. Failure, withdrawal or an unusable
+result within the original deadline refuses use; uncertain effects are
+reconciled without blind replay. See
+[callers and trust boundaries](security.md#callers-and-trust-boundaries).
 
 <a id="credential-resolution"></a>
 <a id="declarative-configuration-and-request-apis"></a>
@@ -119,22 +145,16 @@ specifies the check inputs, response rules and accepted check-to-send race.
 A binding associates an Agent with a source and an approved grant. A source
 references a backend and provider; a route governs the operation's destination.
 OCC admits their identities and generations. A provider adapter classifies the
-operation against the normalized grant; a request cannot choose a different
-source or backend or widen that grant. A shared source still requires each
-Agent's permission. Static inference uses `credentialSources` and `harnessAuth`
-in the existing configuration.
+operation against the normalized grant; a request cannot choose another source
+or backend or widen that grant. A shared source still requires each Agent's
+permission. Static inference uses `credentialSources` and `harnessAuth` in the
+existing configuration.
 
-Trusted composition uses the admitted binding and source to select the
-Backend/provider implementation that reads static material or serves a warm
-dynamic token. For example, two GitHub bindings can share a source but have
-different repository grants; each resolves material eligible for its own
-normalized grant. The authenticated operation and admitted grant supply the
-request context; the request does not choose a Driver to load. This relationship
-is conceptual, not a proposed configuration schema.
-
-An Agent's stable Namespace-scoped ServicePrincipal is distinct from the bearer
-for a particular execution. Bootstrap and discovery have separate, limited
-authority. See [callers and trust boundaries](security.md#callers-and-trust-boundaries).
+Trusted composition selects the Backend and provider from the admitted source.
+Shared GitHub sources resolve within each binding's repository grant. Requests
+cannot choose a Driver to load. An Agent's stable Namespace-scoped
+ServicePrincipal is distinct from its execution bearer; bootstrap and management
+have separate, limited authority. This is not a new configuration schema.
 
 **Open:** execution identity issuance and lifetime, bootstrap delegation,
 discovery identity and transport, and the relationship between external
@@ -142,21 +162,28 @@ authorization and native IAM.
 
 ### Egress Proxy
 
-The conceptual trusted operation `egress.forRequest(request).forward(bindingRef)`
-owns capture through response handling. It is an example, not a wire API or an
-Agent credential-reading interface. Credential-free forwarding uses an admitted
-route and grant. The [security model](security.md#authorize-each-operation) defines
-what each check binds and [response handling](security.md#protect-responses)
-defines when to pass, redact or refuse.
+The conceptual operation `egress.forRequest(request).forward(bindingRef)` owns
+capture through response handling. It is not a wire API or an Agent
+credential-reading interface. Credential-free forwarding uses an admitted route
+and grant. The [security model](security.md#authorize-each-operation) defines
+the checks and [response handling](security.md#protect-responses).
 
 ### Credential Resolver
 
-For an admitted binding and authenticated operation, the resolver returns a
+For an admitted binding and authenticated operation, the Resolver returns a
 use-bound, single-use handle to trusted code, or `Denied`, `NotReady` or
 `Unavailable`. It serves static and dynamic material through one contract.
-Warm-token reuse is scoped; each credentialed operation resolves again. The
-proxy has no reusable dynamic-token cache or fallback. [Resolution and custody](security.md#resolution-and-custody)
-defines the boundaries.
+Agent and separately authorized bootstrap request paths resolve only usable warm
+dynamic material: a cold or expired read returns `NotReady` without issuing,
+signing, refreshing or scheduling work. Management retrieval that may refresh
+cannot replace this Resolver.
+
+Dynamic token reuse is scoped behind the Resolver; each credentialed operation
+resolves again. The proxy has no reusable dynamic-token cache or fallback.
+Authenticated rejection feedback bound to source generation, grant and token
+version can separately trigger background recovery; the sender does not
+automatically retry.
+[Resolution and custody](security.md#resolution-and-custody) defines the boundaries.
 
 **Open:** the wire schema and how material identity, version and expiry evidence
 are represented and verified.
@@ -166,12 +193,12 @@ are represented and verified.
 
 ### Secret Driver and token lifecycle
 
-The Secret Driver reads admitted references and inputs; it does not thereby own
-refresh. Static values follow the [live Secret cutover](lifecycle.md#live-secret-cutover)
-freshness and failure rules. Dynamic credentials are prepared in the background;
-cold or expired reads return `NotReady` without issuing or scheduling work.
-[Lifecycle](lifecycle.md#1-configure-and-warm)
-defines freshness, failure and recovery.
+The Secret Driver reads admitted references and inputs; it does not own refresh.
+[Static defaults](lifecycle.md#live-secret-cutover) are ten-minute freshness and
+four-hour **total** eligible stale age, with typed failures and trustworthy
+observation age. The lifecycle owner prepares and renews dynamic material,
+preserving scope and expiry. [Lifecycle](lifecycle.md#1-configure-and-warm)
+defines failure and recovery.
 
 OpenShell should schedule rotation it supports. An
 [OAuth-shaped issuer bridge](lifecycle.md#github-issuer-bridge) is the preferred
@@ -186,22 +213,28 @@ owner and hook protocol remain **open**; the bridge is not claimed to exist.
 The **Egress Proxy MVP** may precede rotating OAuth but must qualify its declared
 provider slice. **OCE 1.0** requires static inference, GitHub repository
 preparation, Codex OAuth and custom dynamic paths, including safe rotating-input
-concurrency, restart and recovery. Earlier slices supporting rotating inputs must
-meet those same safety requirements.
+concurrency, restart and recovery. Earlier slices using rotating inputs must
+meet the same safety requirements.
 
 Minimal CI and local fast mode may use fixtures and no-op egress; they do not
 prove enforcement or injection. Compose can exercise a production-style adapter
-and must report its actual capabilities. Hardened deployments require qualified
-enforcement, identity, protocol support and custody, without silent no-op
-fallback. Profile capabilities must be checked at startup and Agent admission.
-Owners need provisioning and credential-failure status; operators need refresh
-and expiry visibility. Alert channels and thresholds remain open.
+and must report its actual capabilities.
+Hardened deployments require qualified enforcement, identity, protocol support
+and custody, without silent no-op fallback. Check profile capabilities at startup
+and Agent admission. Owners need provisioning and credential-failure status;
+operators need refresh and expiry visibility. Alert channels and thresholds
+remain open.
 
-[#1691](https://github.com/openclaw/openclaw-enterprise/pull/1691) proposes a
-complementary refresh composition, not this whole request path. This RFC
-retains requirements from [PR #924](https://github.com/openclaw/openclaw-enterprise/pull/924)
+Dedicated follow-up RFCs cover independent non-OpenShell implementations,
+strong local development, packaging, and additional Driver/Backend loading and
+compatibility. Scaling and high availability (HA), including ownership and
+failover, require separate qualification.
+
+[#1691](https://github.com/openclaw/openclaw-enterprise/pull/1691) records the
+refresh proposal underlying the narrower #1749 implementation. This RFC retains
+[PR #924](https://github.com/openclaw/openclaw-enterprise/pull/924)'s requirements
 with a different lifecycle model. [Implementation and qualification](lifecycle.md#implementation-discovery-and-qualification)
-identifies remaining work, including DNS and the pinned Codex HTTP/SSE path.
+tracks OpenShell #4357, the inspected OCE #1785 snapshot and remaining integration.
 Source, fixture, installed-runtime and live-provider evidence support different
 claims; none alone proves the proposed composition.
 
