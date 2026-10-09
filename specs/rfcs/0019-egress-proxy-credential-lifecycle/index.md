@@ -38,13 +38,12 @@ An owner configures a source and grants an Agent permission to use it. The
 OpenClaw Control Plane (OCC) admits the configuration. A trusted sender mediates
 each operation, including egress that needs no credential.
 
-![Proposed logical credential path](assets/overview.svg)
+![Proposed Agent request path](assets/overview.svg)
 
-_Dashed arrows show proposed relationships. “Fulfills role” maps the concrete
-Agent proxy to the logical sender; it is not another service hop. Bootstrap and
-discovery can use an authorized sender without traversing that proxy.
-[Editable diagram](assets/overview.mmd);
-[lifecycle](lifecycle.md); [security model](security.md)._
+_Proposed request; dashed arrows are interactions. OCC checks before resolution
+and again before send. The proxy is the trusted sender and protects responses.
+[Editable diagram](assets/overview.mmd); [lifecycle](lifecycle.md);
+[security model](security.md)._
 
 | Logical role                    | Responsibility                                                                    |
 | ------------------------------- | --------------------------------------------------------------------------------- |
@@ -62,6 +61,13 @@ OCE-managed or delegated, subject to source policy and qualified implementation
 capabilities. The Egress Proxy Driver configures and observes enforcement; the
 Credential Gateway Driver registers sources and attaches revisions. The Agent's
 OpenClaw Gateway is separate.
+
+![Proposed credential sources and background preparation](assets/credential-architecture.svg)
+
+_Dashed interactions connect logical roles, which may share one OpenShell adapter.
+OpenShell may own the background loop with an OCE issuer hook. Bootstrap and
+discovery are separate authenticated trusted callers outside the Agent proxy.
+[Editable diagram](assets/credential-architecture.mmd)._
 
 <a id="examples-and-startup"></a>
 
