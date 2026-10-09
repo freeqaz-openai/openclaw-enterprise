@@ -1,5 +1,5 @@
 ---
-title: "Proposed · configuration and warmup"
+title: "Proposed background preparation"
 config:
   theme: base
   themeVariables:
@@ -15,30 +15,32 @@ config:
     signalTextColor: "#25364A"
   sequence:
     useMaxWidth: false
-    actorMargin: 20
-    width: 125
-    height: 48
-    diagramMarginX: 16
-    diagramMarginY: 16
-    messageMargin: 20
-    noteMargin: 10
+    actorMargin: 18
+    width: 116
+    height: 44
+    diagramMarginX: 12
+    diagramMarginY: 12
+    messageMargin: 16
+    noteMargin: 8
     mirrorActors: true
     wrap: true
 ---
 sequenceDiagram
-  participant C as Control plane
-  participant T as Token Service
-  participant S as Secret Driver<br/>+ backend
+  participant C as OCC
+  participant L as Lifecycle owner<br/>(Token Service)
+  participant I as Provider issuer
   participant P as Provider
-  Note over C,T: Sources and grants<br/>Admission is not readiness
-  C->>T: Push versioned configuration
-  T-->>C: Accepted generation
-  T->>S: Authorized signing / refresh input
-  S-->>T: Input or refusal
-  Note over T,S: Input refusal blocks issuance,<br/>bootstrap seed cannot replace newer canonical input
-  Note over T: Fence rotating input before consumption
-  T->>P: With input: proactively obtain / refresh
-  P-->>T: Scoped token or failure
-  Note over T,S: Readiness requires<br/>usable material and<br/>durable replacement input<br/>if rotated.<br/>Otherwise report failure
-  T-->>C: Warm readiness or failure status
-  Note over C,T: Required token absent → block startup
+  C->>L: Admitted source generation and grant
+  L-->>C: Configuration accepted
+  Note over C,L: Accepted ≠ warm
+  Note over L,P: One owner per family#59; prepare even without requests
+  L->>L: Fence before<br/>rotating-input use
+  Note over L,P: Permitted inputs via Secret Driver<br/>Canonical replacement must not be<br/>overwritten by the bootstrap seed
+  L->>I: Prepare for the exact admitted grant
+  I->>P: Obtain or renew provider material
+  P-->>I: Material or failure
+  I->>I: Validate grant<br/>and expiry
+  I-->>L: Validated material or failure
+  L->>L: Persist replacement<br/>before readiness
+  L-->>C: Warm readiness or failure
+  Note over C,I: Required material not warm within startup bound:<br/>block startup and report status

@@ -9,38 +9,43 @@ config:
     primaryTextColor: "#25364A"
     lineColor: "#748798"
     edgeLabelBackground: "#FFFFFF"
+    clusterBkg: "#FAFBFC"
+    clusterBorder: "#D8DEE6"
   flowchart:
     useMaxWidth: false
     curve: linear
-    nodeSpacing: 18
-    rankSpacing: 24
-    padding: 10
+    nodeSpacing: 22
+    rankSpacing: 28
+    padding: 12
     diagramPadding: 12
+    subGraphTitleMargin:
+      top: 10
+      bottom: 14
 ---
 flowchart TB
-  Agent["<b>Agent execution</b><br/>All egress mediated"]
-  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped repository work"]
-  Discovery["<b>Trusted discovery</b><br/>Scoped service caller"]
-  Sender["<b>Egress Proxy /</b><br/><b>trusted sender</b><br/>Capture, inject, send"]
-  Control["<b>OCC</b><br/>Admit and check"]
-  Resolver["<b>CredentialResolver</b><br/>Resolve each use"]
-  Secret["<b>Secret Driver</b><br/>Static or lifecycle input"]
-  Lifecycle["<b>Token Service</b><br/>Lifecycle owner<br/>Prepare warm tokens"]
-  Provider["<b>Provider</b><br/>GitHub, inference"]
-  Agent -. operation .-> Sender
-  Bootstrap -. operation .-> Sender
-  Discovery -. operation .-> Sender
-  Sender -. fresh checks .-> Control
-  Sender -. resolve binding .-> Resolver
-  Resolver -. static .-> Secret
-  Resolver -. warm dynamic .-> Lifecycle
-  Lifecycle -. lifecycle input .-> Secret
-  Lifecycle -. background issuance .-> Provider
-  Sender -. forward .-> Provider
-  class Agent,Bootstrap,Discovery,Provider external
-  class Sender action
-  class Control,Resolver,Secret,Lifecycle api
+  Agent["<b>Agent workload</b><br/>No provider material"]
+  Proxy["<b>Agent egress proxy</b><br/>Concrete enforcement"]
+  Other["<b>Bootstrap / discovery</b><br/>Separate trusted callers"]
+  Sender["<b>Trusted sender</b><br/>Logical role<br/>Capture, inject, protect"]
+  OCC["<b>OCC</b><br/>Current authorization"]
+  Resolver["<b>CredentialResolver</b><br/>Static or warm dynamic"]
+  Provider["<b>Provider</b><br/>GitHub or inference"]
+  Background["<b>Lifecycle owner</b><br/>Schedules provider issuer<br/>Background preparation"]
+  Agent -. mediated egress .-> Proxy
+  Proxy -. fulfills role .-> Sender
+  Other -. use sender role .-> Sender
+  Sender -. authorized send .-> Provider
+  Sender -. two online checks .-> OCC
+  Sender -. resolve if needed .-> Resolver
+  Background -. prepare warm material .-> Resolver
+  class Agent,Other,Provider external
+  class Proxy action
+  class Sender logical
+  class OCC,Resolver api
+  class Background action
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
   classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
   classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px
+  classDef gate fill:#F7F1E5,stroke:#B3A078,color:#514532,stroke-width:1px
+  classDef logical fill:#F3F4F6,stroke:#98A2AE,color:#344054,stroke-width:1px,stroke-dasharray:4 4
   linkStyle default stroke:#748798,stroke-width:1px

@@ -1,5 +1,5 @@
 ---
-title: "Proposed credentialed request"
+title: "Proposed request · authorize and resolve"
 config:
   theme: base
   themeVariables:
@@ -15,55 +15,31 @@ config:
     signalTextColor: "#25364A"
   sequence:
     useMaxWidth: false
-    actorMargin: 16
-    width: 110
-    height: 42
+    actorMargin: 18
+    width: 116
+    height: 44
     diagramMarginX: 12
     diagramMarginY: 12
-    messageMargin: 17
+    messageMargin: 16
     noteMargin: 8
     mirrorActors: true
     wrap: true
 ---
 sequenceDiagram
-  participant A as Agent
-  participant G as Egress Proxy
+  participant A as Caller
+  participant S as Trusted sender
   participant C as OCC
-  participant R as CredentialResolver
-  participant S as Secret Driver /<br/>lifecycle owner
-  participant P as Provider
-  A->>G: Operation with execution bearer
-  G->>G: Capture immutable operation
-  G->>C: Check caller, operation, route and grant online
-  C-->>G: Allow, deny, or unavailable
-  alt Deny or unavailable
-    G-->>A: Refuse without forwarding
-  else Allow
-    G->>R: Resolve admitted binding for this use
-    alt Static credential
-      R->>S: Read or use eligible retained value
-      S-->>R: Value or typed failure
-      Note over R,S: Stale fallback needs eligible error and age evidence
-    else Dynamic credential
-      R->>S: Scoped warm token lookup only
-      S-->>R: Usable token or failure
-      Note over R,S: Scoped reuse, no read-triggered issuance or refresh
-    end
-    R-->>G: Use-bound handle or refusal
-    alt Usable material
-      G->>G: Finish transformations and awaited preparation
-      G->>C: Fresh check: exact context and material identity/version
-      C-->>G: Allow, deny, or unavailable
-      G->>G: Recheck material usability and both deadlines
-      alt Allow and usable within deadlines
-        G->>P: Strip Agent authentication, inject, forward
-        P-->>G: Response
-        G-->>A: Apply response policy
-      else Denied, unavailable, unusable or too late
-        G-->>A: Refuse without forwarding
-      end
-    else Denied, missing, or unusable material
-      G-->>A: Refuse without forwarding
-    end
+  participant R as Credential<br/>Resolver
+  A->>S: Authenticated operation
+  S->>S: Capture immutable operation<br/>Select route and grant
+  S->>C: Check caller, operation,<br/>versioned route and grant
+  C-->>S: Allow, deny or unavailable
+  Note over S,C: Deny or unavailable: stop here
+  opt Allowed credentialed operation
+    S->>R: Resolve admitted binding for this use
+    R-->>S: Use-bound handle or refusal
+    Note over S,R: Refusal stops the operation<br/>Cold dynamic material never triggers preparation
   end
-  Note over A,G: Repeat for each HTTP subrequest, redirect and retry,<br/>no cached allows, including on reused connections
+  Note over S,C: Credential-free egress skips resolution,<br/>not authorization
+  S->>S: Complete transformations<br/>and awaited preparation<br/>Freeze actual operation
+  Note over S,C: Continue to final check<br/>A handle is not send authority

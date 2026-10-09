@@ -1,5 +1,5 @@
 ---
-title: "Proposed · withdrawal and recovery"
+title: "Proposed withdrawal and recovery"
 config:
   theme: base
   themeVariables:
@@ -15,29 +15,31 @@ config:
     signalTextColor: "#25364A"
   sequence:
     useMaxWidth: false
-    actorMargin: 20
-    width: 125
-    height: 48
-    diagramMarginX: 16
-    diagramMarginY: 16
-    messageMargin: 20
-    noteMargin: 10
+    actorMargin: 18
+    width: 116
+    height: 44
+    diagramMarginX: 12
+    diagramMarginY: 12
+    messageMargin: 16
+    noteMargin: 8
     mirrorActors: true
     wrap: true
 ---
 sequenceDiagram
   participant O as Owner
-  participant C as Control plane
-  participant G as Egress<br/>Proxy
-  participant R as Cleanup /<br/>credential owner
-  O->>C: Withdraw source access or stop revision
+  participant C as OCC
+  participant S as Trusted sender
+  participant R as Original work owner
+  O->>C: Withdraw access
   C-->>O: Withdrawal committed
-  G->>C: Check a subsequent operation
-  C-->>G: Deny or unavailable
-  Note over C,G: A check that sees withdrawal denies access
-  Note over G,R: An earlier check can race withdrawal#59;<br/>finite work may finish by its deadline
+  S->>C: Check next operation
+  C-->>S: Deny removed access
+  Note over C,S: Unavailable authority also refuses use
+  Note over C,R: Accepted race: a final check can race withdrawal#59;<br/>send may start after acknowledgment
+  Note over S,R: Original deadline still applies<br/>Cancellation is best effort<br/>Timeout does not undo effects
+  S->>R: Preserve uncertain send and attempt evidence
+  Note over C,R: Send, refresh and clone keep their original owner,<br/>deadline and cleanup duties across process replacement
+  R->>R: Reconcile provider effect<br/>or require reauthorization
+  Note over S,R: No blind replay<br/>Preserve late outcomes<br/>Cleanup remains owed
+  R-->>C: Resolved or still-pending evidence
   C-->>O: Status and outstanding cleanup
-  C->>R: Retain unresolved cleanup obligations
-  Note over C,R: Original owner retains uncertain effects
-  R-->>C: Evidence of resolved or pending work
-  Note over C,R: Local closure does not prove provider disposal

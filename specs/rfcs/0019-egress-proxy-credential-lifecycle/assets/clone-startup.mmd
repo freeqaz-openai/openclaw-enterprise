@@ -1,5 +1,5 @@
 ---
-title: "Proposed optional clone gate"
+title: "Proposed optional repository preparation"
 config:
   theme: base
   htmlLabels: true
@@ -9,35 +9,42 @@ config:
     primaryTextColor: "#25364A"
     lineColor: "#748798"
     edgeLabelBackground: "#FFFFFF"
+    clusterBkg: "#FAFBFC"
+    clusterBorder: "#D8DEE6"
   flowchart:
     useMaxWidth: false
     curve: linear
-    nodeSpacing: 16
-    rankSpacing: 16
-    padding: 10
-    diagramPadding: 10
+    nodeSpacing: 22
+    rankSpacing: 28
+    padding: 12
+    diagramPadding: 12
     subGraphTitleMargin:
-      top: 8
-      bottom: 10
+      top: 10
+      bottom: 14
 ---
 flowchart TB
-  Repo{"Repository<br/>configured?"}
-  Bootstrap["<b>Trusted bootstrap</b><br/>Scoped authorized clone"]
-  Gate["<b>Sender check</b><br/>Warm token and<br/>final OCC decision"]
-  Clone["<b>Trusted sender → GitHub</b><br/>Inject token, forward clone"]
-  Start["<b>Compute starts Agent</b><br/>Required gates satisfied"]
-  Block["<b>Compute / bootstrap</b><br/>Block startup by default<br/>Own partial work"]
-  Repo -.->|no clone| Start
-  Repo -.->|yes| Bootstrap
-  Bootstrap -.-> Gate
-  Gate -.->|allow + usable| Clone
-  Gate -.->|not allowed / not usable| Block
-  Clone -.->|observed success| Start
-  Clone -.->|failed / uncertain| Block
+  Repo{"<b>Repository</b><br/>configured?"}
+  Warm["<b>Startup warm wait</b><br/>Bounded background<br/>preparation"]
+  Bootstrap["<b>Trusted bootstrap</b><br/>Execution + repository<br/>delegation"]
+  Sender["<b>Trusted sender</b><br/>OCC check → resolve<br/>→ final OCC check"]
+  Clone["<b>Clone through sender</b><br/>Recheck usability<br/>Inject token, send"]
+  Start["<b>Compute starts Agent</b><br/>All required gates met"]
+  Block["<b>Compute / bootstrap</b><br/>Block startup by default<br/>Own partial-work cleanup"]
+  Repo -. no clone .-> Start
+  Repo -. yes .-> Warm
+  Warm -. ready .-> Bootstrap
+  Warm -. bound exceeded .-> Block
+  Bootstrap -. each clone operation .-> Sender
+  Sender -. allowed + usable .-> Clone
+  Sender -. refused .-> Block
+  Clone -. observed success .-> Start
+  Clone -. failed / uncertain .-> Block
   class Bootstrap,Clone,Start action
-  class Gate api
-  class Repo,Block gate
+  class Sender api
+  class Repo,Warm,Block gate
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
   classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
+  classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px
   classDef gate fill:#F7F1E5,stroke:#B3A078,color:#514532,stroke-width:1px
+  classDef logical fill:#F3F4F6,stroke:#98A2AE,color:#344054,stroke-width:1px,stroke-dasharray:4 4
   linkStyle default stroke:#748798,stroke-width:1px
