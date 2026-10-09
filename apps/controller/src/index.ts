@@ -1390,7 +1390,13 @@ export function createFastifyApp(options: ControllerAppOptions): FastifyInstance
     request.raw.once("aborted", abort);
     reply.raw.once("close", closed);
     try {
-      if (request.raw.aborted) {
+      // Identity admission may finish after a fully received request disconnects.
+      if (
+        request.raw.aborted ||
+        request.raw.socket.destroyed ||
+        reply.raw.destroyed ||
+        reply.raw.closed
+      ) {
         abort();
       }
       return await discover(controller.signal);

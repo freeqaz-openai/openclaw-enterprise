@@ -1412,15 +1412,16 @@ test("Hosted discovery requires a credential, and curated discovery still requir
   }
 });
 
-async function createHostedSendFixture(t) {
+async function createHostedSendFixture(t, { ready = true, catalogSource = "hosted", onSend } = {}) {
   const auditSink = new InMemoryAuditSink();
   const fixture = await createConsoleAppFixture(t, {
     auditSink,
     provisionedPeople: ["discovery-editor"],
+    onSend,
   });
   await fixture.bootstrap();
-  const namespace = await fixture.createNamespace("Current discovery authority", { ready: true });
-  const driver = new CodexPluginDriver();
+  const namespace = await fixture.createNamespace("Current discovery authority", { ready });
+  const driver = new CodexPluginDriver({ catalogSource });
   fixture.controller.registerDriver(driver);
   fixture.controller.selectDriver("plugin", driver.id);
   const actor = fixture.provisionedAccounts[0];
@@ -1806,3 +1807,172 @@ test("Hosted API disconnect cancels pending authorization before later provider 
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(fixture.sends, ["identity"]);
 });
+
+for (const suffix of ["", "/details"]) {
+  test(
+    `Hosted API disconnect during identity admission prevents ${suffix || "catalog"} sends`,
+    { timeout: 10_000 },
+    async (t) => {
+      const completed = Promise.withResolvers();
+      let path;
+      const fixture = await createHostedSendFixture(t, {
+        async onSend(request, reply, payload) {
+          if (request.raw.url === path) {
+            completed.resolve(reply.statusCode);
+          }
+          return payload;
+        },
+      });
+      fixture.grantCreate();
+      path = `${fixture.path}${suffix}`;
+      const admitted = Promise.withResolvers();
+      const release = Promise.withResolvers();
+      const closed = Promise.withResolvers();
+      let incoming;
+      let outgoing;
+      const observe = (request, reply) => {
+        if (request.url === path) {
+          incoming = request;
+          outgoing = reply;
+          reply.once("close", () => closed.resolve());
+        }
+      };
+      fixture.app.server.on("request", observe);
+      const lookupIdentity = fixture.iamDriver.lookupIdentity.bind(fixture.iamDriver);
+      t.mock.method(fixture.iamDriver, "lookupIdentity", async (...args) => {
+        // Hold delivery of the real Native IAM result after Fastify consumed the
+        // body, before its preHandler can enter discovery. No decision is replaced.
+        const identity = await lookupIdentity(...args);
+        assert.ok(identity);
+        admitted.resolve();
+        await release.promise;
+        return identity;
+      });
+      fixture.registerCleanupBeforeAppClose(() => {
+        release.resolve();
+        fixture.app.server.off("request", observe);
+        fixture.app.server.closeAllConnections();
+      });
+      const request = httpRequest(`${fixture.origin}${path}`, {
+        method: "POST",
+        headers: { ...authenticatedHeaders(fixture.session), "content-type": "application/json" },
+      });
+      request.on("error", () => {}); // The intentional disconnect resets the client request.
+      request.end(JSON.stringify({ accessToken, ...(suffix ? { pluginId: remoteId } : {}) }));
+      try {
+        await admitted.promise;
+        assert.equal(incoming.complete, true);
+        request.destroy();
+        await closed.promise;
+        assert.equal(incoming.aborted, false);
+        assert.equal(outgoing.destroyed, true);
+        assert.equal(outgoing.writableEnded, false);
+        release.resolve();
+        // onSend proves the route finished after admission resumed; elapsed time
+        // alone would not prove that delayed authorization cannot send later.
+        const status = await completed.promise;
+        assert.deepEqual(fixture.sends, []);
+        assert.equal(status, 503);
+        assert.equal(incoming.listenerCount("aborted"), 0);
+      } finally {
+        release.resolve();
+        request.destroy();
+      }
+    },
+  );
+}
+
+for (const [catalogSource, scope] of [
+  ["hosted", "Namespace"],
+  ["openai-curated", "Namespace"],
+  ["openai-curated", "saved Agent"],
+]) {
+  test(`Provisioning Namespace permits ${catalogSource} ${scope} discovery and enforces revocation`, async (t) => {
+    const fixture = await createHostedSendFixture(t, { ready: false, catalogSource });
+    assert.equal(fixture.namespace.status, "provisioning");
+    let saved;
+    if (scope === "saved Agent") {
+      // A draft dedicated Agent needs no Secret for curated discovery. Secret
+      // creation itself requires ready infrastructure and is not bypassed here.
+      const agent = await fixture.createAgent(
+        fixture.namespace.id,
+        "Provisioning curated Agent",
+        createHarnessConfiguration("codex", "gpt-5.1"),
+        { executionMode: "dedicated", harnessAuth: null },
+      );
+      await fixture.grant(fixture.actor.principal.id, "agent", agent.id, ["read"]);
+      const update = await fixture.grant(fixture.actor.principal.id, "agent", agent.id, ["update"]);
+      saved = {
+        agent,
+        grants: { update },
+        path: `/namespaces/${fixture.namespace.id}/agents/${agent.id}/plugins`,
+      };
+    }
+    const create = saved === undefined ? fixture.grantCreate() : undefined;
+    const path = saved?.path ?? fixture.path;
+    const credential = catalogSource === "hosted" && saved === undefined ? { accessToken } : {};
+    const id =
+      catalogSource === "hosted" ? remoteId : "plugin_asdk_app_69a089a326dc8191b32a3f2553f5be2c";
+    if (saved !== undefined) {
+      assert.equal(saved.agent.status, "active");
+    }
+    // Namespace and draft Agent creation use the actual APIs. No runtime-ready
+    // transition is needed to discover plugins under current edit authority.
+    const catalog = await fixture.request("POST", path, {
+      session: fixture.session,
+      body: credential,
+    });
+    assert.equal(catalog.status, 200, JSON.stringify(catalog.body));
+    assert.ok(catalog.data.plugins.some((plugin) => plugin.remoteId === id));
+    const details = await fixture.request("POST", `${path}/details`, {
+      session: fixture.session,
+      body: { ...credential, pluginId: id },
+    });
+    assert.equal(details.status, 200, JSON.stringify(details.body));
+    assert.equal(details.data.remoteId, id);
+    assert.deepEqual(
+      fixture.sends,
+      catalogSource === "hosted" ? ["identity", "catalog", "identity", "details", "tools"] : [],
+    );
+    fixture.sends.length = 0;
+    const revoke = async () => {
+      if (saved !== undefined) {
+        await fixture.revoke(saved.grants.update);
+      } else {
+        // Namespace create authority is provisioned policy, as in the existing
+        // send regressions; withdrawal changes the real evaluator's input.
+        fixture.policy.bindings = fixture.policy.bindings.filter(
+          (binding) => binding.id !== create,
+        );
+      }
+    };
+    if (catalogSource === "hosted") {
+      fixture.afterSend(async (operation) => {
+        if (operation === "identity") {
+          await revoke();
+        }
+      });
+      const interrupted = await fixture.request("POST", `${path}/details`, {
+        session: fixture.session,
+        body: { ...credential, pluginId: id },
+      });
+      assert.equal(interrupted.status, 403, JSON.stringify(interrupted.body));
+      assert.deepEqual(fixture.sends, ["identity"]);
+      fixture.sends.length = 0;
+    } else {
+      await revoke();
+    }
+    for (const suffix of ["", "/details"]) {
+      const denied = await fixture.request("POST", `${path}${suffix}`, {
+        session: fixture.session,
+        body: { ...credential, ...(suffix ? { pluginId: id } : {}) },
+      });
+      assert.equal(denied.status, 403, JSON.stringify(denied.body));
+      assert.equal(denied.body.error.code, "FORBIDDEN");
+    }
+    assert.deepEqual(fixture.sends, []);
+    assert.equal(fixture.auditSink.events.at(-1).kind, "authorization_denial");
+    const namespace = await fixture.request("GET", `/namespaces/${fixture.namespace.id}`);
+    assert.equal(namespace.data.status, "provisioning");
+  });
+}

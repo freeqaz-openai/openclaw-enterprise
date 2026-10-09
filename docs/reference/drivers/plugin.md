@@ -108,8 +108,8 @@ default allow callback; direct trusted callers must supply one.
 OCC checks current Namespace Agent `create` for pre-Agent discovery, including
 transient credentials. Saved-Agent PAT discovery checks exact active Agent
 `read`/`update`, caller and Agent Secret `operate`, and the unchanged saved Secret
-binding. Discovery requires a ready Namespace. Credential-free curated discovery
-retains OCC's entry checks and makes no provider requests.
+binding. Discovery also supports provisioning Namespaces. Credential-free curated
+discovery retains OCC's entry checks and makes no provider requests.
 
 The hosted Driver uses one 15-second deadline for discovery after entry
 credential acquisition. It bounds authorization waits by that deadline and

@@ -86,7 +86,7 @@ cursors, or plugin IDs. Hosted discovery resolves bound `codex_pat` and rechecks
 binding and caller/Agent Secret `operate` inside
 [`SecretDriver.withValue`](../reference/drivers/secret.md). Curated discovery needs
 no Secret. Missing, denied, or unavailable Secrets fail before discovery.
-Discovery requires a ready Namespace. Nontransactional reads may precede rotation;
+Discovery also supports provisioning Namespaces. Nontransactional reads may precede rotation;
 discovery persists neither state nor credentials.
 
 The [Codex Driver](../../apps/controller/src/drivers/plugin/index.ts) hydrates
@@ -110,7 +110,8 @@ Denial or unavailable authority stops discovery. Authorization waits share the
 Driver's 15-second deadline, which starts after entry credential acquisition.
 `send` checks expiry and cancellation again after the wait, so a late result
 cannot restart a send. HTTP disconnects abort through
-`createFastifyApp:withPluginDiscoverySignal`. The
+`createFastifyApp:withPluginDiscoverySignal`, including connections closed during
+identity admission before discovery listeners are installed. The
 [contract limits](../reference/drivers/plugin.md#native-mappings-and-limits) apply.
 
 Hosted reads forbid redirects. OCC returns `no-store` metadata, rejects

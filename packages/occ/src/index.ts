@@ -5193,9 +5193,6 @@ export class OpenClawController {
     }
     await this.read(async (state) => {
       const namespace = await this.exactNamespace(state, namespaceId);
-      if (namespace.status !== "ready") {
-        throw new NamespaceNotReadyError();
-      }
       if (
         credential.secretRef !== undefined &&
         !(await state.secrets.findSecret(namespace.id, credential.secretRef.id))
@@ -5492,9 +5489,6 @@ export class OpenClawController {
     await this.authorize(principalId, "update", resource);
     return this.read(async (state) => {
       const namespace = await this.exactNamespace(state, namespaceId);
-      if (namespace.status !== "ready") {
-        throw new NamespaceNotReadyError();
-      }
       const agent = await state.agents.findAgent(namespace.id, agentId);
       if (agent === undefined) {
         throw new ScopeViolationError(
