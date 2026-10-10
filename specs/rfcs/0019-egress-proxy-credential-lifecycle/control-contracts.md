@@ -18,12 +18,14 @@ dropping these semantics. [Runtime contracts](runtime-contracts.md) and
 | `Id`, `Ref`          | `Id`: immutable opaque string; deletion/recreation gets a new ID. `Ref`: `{id: Id, generation: positive integer}`. Generations increase on configuration change, never material rotation.                                                                                                                                                                          |
 | `Scope`, `SourceKey` | `Scope`: `{installationId: Id, namespaceId: Id}`. `SourceKey`: `{scope: Scope, source: Ref, backend: Ref, provider: Ref}`.                                                                                                                                                                                                                                         |
 | `Execution`          | `{scope: Scope, agentId: Id, servicePrincipalId: Id, revisionId: Id, executionId: Id}`. OCC assigns the execution; the stable Agent principal is separate.                                                                                                                                                                                                         |
+| `Management`         | `{scope: Scope, servicePrincipalId: Id, initiatingPrincipalId: Id, purpose: configuration\|discovery, authorizationId: Id}`; OCC derives this context, not permission to skip current checks.                                                                                                                                                                      |
+| `Context`            | `execution{execution: Execution}` or `management{management: Management}`. Route and Binding must carry the same variant and exact context.                                                                                                                                                                                                                        |
 | `Bounds`, `Command`  | `Bounds`: `{deadlineAt: UTC timestamp, cancellation: local cancellation signal}`. Cancellation cannot prove remote cancellation. `Command`: bounds plus `requestId: UUID`, `admission: Permit`.                                                                                                                                                                    |
 | `Permit`             | Runtime-verifiable OCC reference binding authenticated principal, purpose, exact target refs/generations, action, audience, input digest and expiry. Control action/purpose are constrained below; runtime purposes are defined at their methods. Issued after authorization, never caller assertions.                                                             |
 | `SecretRef`          | `{scope: Scope, secretId: Id, secretDriver: Ref}`; exact live Secret identity, not a value or value version.                                                                                                                                                                                                                                                       |
 | `Grant`              | Initial closed schemas: `inference` with `models: string[]`; `github` with `appId`, `installationId`, `repositoryIds: nonempty Id[]`, `permissions: {contents: read\|write, metadata: read}`; `oauth` with `audience: string, scopes: string[]`; `api` with `audience: string, operationPolicy: Ref`. Registered extensions follow the typed admission rule below. |
-| `Binding`            | `{binding: Ref, execution: Execution, source: SourceKey, grant: Grant, grantHash: SHA-256, isolationId: Id, requiredForStartup: boolean}`. Canonical sorted/deduplicated grants have no implicit wildcard. Default isolation is per Agent; sharing requires explicit admission.                                                                                    |
-| `Route`              | `{route: Ref, execution: Execution, origin: HTTPS origin, methods: HTTP method[], pathPrefix: string, operationPolicy: Ref, responsePolicy: Ref, use: Binding\|none, grant: Grant, deadlineMs: positive integer}`. Prefix matching is segment-aware; provider classification supplies finer constraints. Credential-free routes still have grants.                 |
+| `Binding`            | `{binding: Ref, context: Context, source: SourceKey, grant: Grant, grantHash: SHA-256, isolationId: Id, requiredForStartup: boolean}`. Canonical sorted/deduplicated grants have no implicit wildcard. Default isolation is per Agent; sharing requires explicit admission.                                                                                        |
+| `Route`              | `{route: Ref, context: Context, origin: HTTPS origin, methods: HTTP method[], pathPrefix: string, operationPolicy: Ref, responsePolicy: Ref, use: Binding\|none, grant: Grant, deadlineMs: positive integer}`. Prefix matching is segment-aware; provider classification supplies finer constraints. Credential-free routes still have grants.                     |
 | `Custody`            | `{sender: Ref, resolver: Ref, owner: Ref\|none, issuer: Ref\|none}` identifies trusted permitted consumers. Source policy must admit each material transfer.                                                                                                                                                                                                       |
 
 OCC's existing source service owns schema validation, IAM authorization, durable
@@ -32,6 +34,14 @@ definitions; requests never choose implementations. Source configuration changes
 advance its generation, including input-reference, route-policy or custody changes.
 Bindings/routes get new generations when their grant or selection changes. A
 live Secret value change preserves configuration generations.
+
+OCC admits management routes and bindings from registered configuration/discovery
+operations and current service and initiating-user rights. They have scoped,
+versioned refs, an explicit grant and isolation, and a bounded deadline; management
+bindings set `requiredForStartup: false`. They need no Agent, execution or Sandbox
+attachment. `authorizationId` identifies the operation context, not a cached allow.
+Agent/bootstrap cannot select this variant; management cannot borrow an Agent
+binding. Shared material reuse still requires explicit isolation admission.
 
 `Source` is `{key: SourceKey, schemaVersion: registered positive integer, custody: Custody, input: Input}`.
 `Input` selects one registered closed schema; initial forms are:
@@ -197,7 +207,9 @@ replaceable egress configuration and withdrawal ownership.
 The proposed Sandbox networking facet adds
 `installEgress(attachment, command) → Change<InstallReceipt>` and
 `egressStatus(attachment, bounds) → Read<InstallReceipt|none>`, with the same
-inspect/reconcile contract. Compute invokes installation while provisioning;
+inspect/reconcile contract. Every Plan route and binding must use the execution variant matching its exact
+Execution; management contexts cannot enter attachments or installation.
+Compute invokes installation while provisioning;
 the target Sandbox input `egressAttachment: Attachment` replaces
 `credentialAttachments`. Sandbox verifies version, audience, execution and the
 entire plan before reporting enforcement. Egress owns binding apply/withdraw;

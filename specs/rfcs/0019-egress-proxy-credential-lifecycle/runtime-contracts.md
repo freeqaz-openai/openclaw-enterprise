@@ -20,7 +20,7 @@ workload JSON cannot supply these identities.
 
 | Shape             | Required fields/variants                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Caller`          | `agent`: Execution; `bootstrap`: Execution plus executorId, delegationId, repositoryId; `management`: Scope plus servicePrincipalId, initiatingPrincipalId, purpose (`configuration\|discovery`), authorizationId. All identifiers are immutable Ids.                                                                                                                                  |
+| `Caller`          | `agent`: Execution; `bootstrap`: Execution plus executorId, delegationId, repositoryId; `management`: the admitted Management context. All identifiers are immutable Ids.                                                                                                                                                                                                              |
 | `Peer`            | Authenticated channel handle, trusted sender Ref, identity evidence handle; both handles are issued by the transport verifier and bound to its audience, expiry and anti-replay state.                                                                                                                                                                                                 |
 | `Exchange`        | Transport-owned immutable request plus response sink, connection evidence and absolute deadline. No caller-provided function may receive material.                                                                                                                                                                                                                                     |
 | `Request`         | `method: HTTP method`, canonical HTTPS URL, ordered header name/value pairs, body representation below, connection `{address: IP, port: integer, tlsName: string, httpAuthority: string}`.                                                                                                                                                                                             |
@@ -28,6 +28,11 @@ workload JSON cannot supply these identities.
 | `Use`             | `{id: Id, caller: Caller, route: Route, request: Request, classification: Classification, capturedAt: UTC timestamp, deadlineAt: UTC timestamp}`                                                                                                                                                                                                                                       |
 | `Classification`  | Initial closed schemas: inference `generate{model: string}` or `list_models{}`; GitHub `repository{repositoryId: Id, action: clone\|read\|write}` or `list_repositories{installationId: Id}`; OAuth/API `{operationPolicy: Ref, action: string}` validated against that versioned policy's closed action list. Extensions use the registered provider schema, never arbitrary context. |
 | `OperationHandle` | Opaque runtime reference to sealed Use and response sink, bound to peer/sender and deadline; single-use dispatch.                                                                                                                                                                                                                                                                      |
+
+Capture requires exact authenticated Caller/Context agreement: Agent and bootstrap
+use their Execution; management uses its Management identity, purpose and source-scoped
+route/binding. The management variant carries through Use, both permits and the
+selected MaterialEvidence binding reference; it never invents an Execution.
 
 Discovery operations use separately admitted policy and applicable management
 authority. Listing models or repositories requires no invented model/repository
@@ -50,7 +55,7 @@ the authorized operation. Changed content requires new capture and checks.
 | `EgressForwarder.forward`            | OperationHandle                                                                                                                                           | `ForwardOutcome` below; owns the complete sequence, not an injection callback. Uses capture's original Bounds.                                                                                         |
 
 OCC dereferences the runtime-verified handle to inspect the exact Use. Each check
-evaluates current IAM rights and applicable initiating-user rights, execution or
+verifies the route/binding Context against the authenticated Caller and evaluates current IAM rights and applicable initiating-user rights, execution or
 delegation currency, hold/withdrawal state, source/binding/backend/provider/route
 generations, normalized grant and actual classified operation. For selected dynamic
 material, check its current family generation and owner epoch as well. This extends OCC
