@@ -2,6 +2,7 @@
 title: "Proposed withdrawal and recovery"
 config:
   theme: base
+  htmlLabels: true
   themeVariables:
     fontFamily: "Arial, sans-serif"
     fontSize: "16px"
@@ -26,26 +27,31 @@ config:
     wrap: true
 ---
 sequenceDiagram
-  participant O as Owner
-  participant C as OCC
-  participant S as Trusted sender
-  participant R as Responsible owner
-  O->>C: Withdraw access
-  C-->>O: Withdrawal committed
-  S->>C: Check next operation
-  C-->>S: Deny removed access
-  Note over C,S: Unavailable authority also refuses use
-  Note over C,R: Accepted race: a final check can race withdrawal#59;<br/>send may start after acknowledgment
-  Note over S,R: Original deadline still applies<br/>Cancellation is best effort<br/>Timeout does not undo effects
-  S->>R: Preserve uncertain send and attempt evidence
-  Note over C,R: Send, refresh and clone keep their original owner,<br/>deadline and cleanup duties across process replacement
-  R->>R: Reconcile provider effect<br/>or require reauthorization
-  Note over S,R: No blind replay<br/>Preserve late outcomes<br/>Cleanup remains owed
-  R-->>C: Resolved or still-pending evidence
-  C-->>O: Status and outstanding cleanup
-  opt Separate warm-token rejection feedback
-    S->>R: Authenticated rejection<br/>Source generation, grant, token version
-    Note over S,R: For this feedback, the owner is the lifecycle owner<br/>Classify credential rejection#59; no automatic sender retry
-    R->>R: Refresh under current authority<br/>or mark unhealthy in background
-    Note over S,R: Late rejection of N cannot invalidate N+1<br/>Agent / bootstrap lookup never schedules this work
+  participant C as OCC / reconciler
+  participant E as Egress driver
+  participant B as Sandbox
+  participant F as Forwarder
+  participant R as Resolver
+  Note over C,R: Proposed flow, exact operations and cleanup survive restart
+  C->>C: Commit denial and durable withdrawal intent
+  C->>E: withdrawBinding(exact binding)
+  E->>E: Persist tombstone<br/>Advance policy generation
+  Note over E,B: Sandbox enforces Egress-owned configuration<br/>Late installs cannot restore a tombstoned binding
+  C->>E: attachmentStatus
+  E-->>C: Successor: remaining bindings
+  C->>B: installEgress(successor, Command)
+  C->>B: egressStatus for exact successor
+  B-->>C: Receipt: binding set and policy generation
+  C->>E: attachmentStatus / inspect / reconcile
+  E-->>C: Detached evidence or outstanding cleanup
+  F->>C: EgressAuthorizer.check for next operation
+  C-->>F: Deny withdrawn authority
+  Note over C,F: Accepted final-check race remains, original deadlines bound in-flight work<br/>Detach does not recall bearer material or undo provider effects
+  opt Credential rejection
+    F->>R: reportRejection
+    R-->>F: recorded / obsolete / Refusal
+    Note over F,R: Exact source, grant and material version, stale N cannot invalidate N+1
+    R->>R: Notify refresh owner<br/>Background recovery
+    F->>F: Return SafeResponse<br/>No automatic retry
   end
+  Note over C,R: Unknown send / refresh / clone effects retain their original owner and attempt<br/>Known partial failure retains cleanup obligations, never blind replay

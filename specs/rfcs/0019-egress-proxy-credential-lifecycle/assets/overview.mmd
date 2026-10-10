@@ -23,21 +23,25 @@ config:
       bottom: 14
 ---
 flowchart TB
+  %% Proposed contract roles; boxes do not prescribe separate daemons.
   Agent["<b>Agent workload</b><br/>No provider credentials"]
-  Network["<b>Network sandbox</b><br/>Allow / deny + intercept"]
-  Proxy["<b>Egress Proxy</b><br/>Trusted sender<br/>Inject + protect responses"]
-  Network -. "permitted traffic" .-> Proxy
-  OCC["<b>OCC authorization</b><br/>1. Before material access<br/>2. Final check before send"]
+  Network["<b>SandboxDriver</b><br/>Network enforcement<br/>installEgress / egressStatus"]
+  Driver["<b>EgressProxyDriver</b><br/>Configure / withdraw<br/>Management only"]
+  Sender["<b>EgressForwarder</b><br/>capture / forward<br/>Inject + protect responses"]
+  OCC["<b>EgressAuthorizer</b><br/>OCC check before access<br/>and before send"]
   Provider["<b>Provider</b><br/>GitHub / inference"]
-  Resolver["<b>Credential Resolver</b><br/>Pure lookup<br/>Static / warm dynamic"]
-  Agent -.-> Network
-  Proxy -. "checks 1 and 2" .-> OCC
-  Proxy -. "authorized send" .-> Provider
-  Proxy -. "resolve if needed<br/>between checks" .-> Resolver
+  Resolver["<b>CredentialResolver</b><br/>resolve if needed<br/>Static / warm dynamic"]
+  Agent -. request .-> Network
+  Network -. permitted traffic .-> Sender
+  Driver -. exact attachment .-> Network
+  Driver -. admitted configuration .-> Sender
+  Sender -. checks 1 and 2 .-> OCC
+  Sender -. between checks .-> Resolver
+  Sender -. authorized send .-> Provider
   class Agent,Provider external
-  class Proxy action
+  class Sender action
   class Network gate
-  class OCC,Resolver api
+  class Driver,OCC,Resolver api
   classDef api fill:#EDF2F7,stroke:#879AB0,color:#25364A,stroke-width:1px
   classDef action fill:#EBF3F0,stroke:#7F9D93,color:#2B4038,stroke-width:1px
   classDef external fill:#F2EDF6,stroke:#A394AF,color:#40354B,stroke-width:1px

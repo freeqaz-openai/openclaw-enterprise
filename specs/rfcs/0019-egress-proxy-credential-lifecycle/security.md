@@ -8,7 +8,8 @@ This companion describes the proposed security contract for
 [RFC-0019](index.md). It is for reviewers assessing authorization, credential
 custody and failure boundaries. It does not establish an implemented or
 qualified system. [Lifecycle](lifecycle.md) owns preparation, rotation, startup
-and recovery; the examples and APIs in the RFC are conceptual.
+and recovery. [Management](control-contracts.md) and [runtime contracts](runtime-contracts.md)
+define proposed transport-neutral fields and method results, not implemented APIs.
 
 ## Assets and threat model
 
@@ -46,21 +47,28 @@ from the request's assertions. An Agent has a stable Namespace-scoped
 ServicePrincipal and a separate bearer for an individual execution. Each Agent
 must be authorized to use a binding, even when the source is shared.
 
+### Agent and bootstrap
+
 Trusted bootstrap is a separate caller with authenticated delegation limited to
 the execution and configured repository. It need not traverse the Agent's proxy.
 Its request-path resolution is warm-only, and its delegation does not grant
 management preparation. Its clone and cleanup duties are in
 [repository preparation](lifecycle.md#2-prepare-the-optional-repository).
 
+### Management preparation
+
 Control-plane configuration and discovery use a separate authenticated caller.
 Its authority is limited to the exact Installation and Namespace, source,
 purpose, operation, scope and destination, plus applicable initiating-user and
 saved-binding rights. When explicitly authorized, it may ask the designated
-lifecycle owner to prepare or refresh material. Authorized trusted code may then
-use the material in a bounded callback to obtain minimum account metadata, or
-make the provider call in a trusted service. OCC checks current authority before
-material access and again after preparation, before each provider send. The
-lifecycle owner retains authority checks for its issuer operations.
+lifecycle owner to prepare or refresh material. The management caller submits the business operation through the trusted
+Forwarder and receives a sanitized response. Any material-consuming callback is
+internal to the designated trusted sender or custody implementation, never an
+arbitrary caller function or a bypass of these checks. OCC checks current
+authority before material access and again after preparation, before each
+provider send. The lifecycle owner retains authority checks for issuer operations.
+
+### Retrieval and recovery
 
 Retrieval supplies usable runtime material only to authorized trusted code. It
 exports no signing or refresh roots and starts no second refresher. Provisioning
@@ -82,7 +90,9 @@ describes the source integration and its limits.
 For every supported operation, including credential-free egress, the trusted
 sender authenticates the caller and captures an immutable description of the
 operation, including its destination, protocol authority and policy-relevant
-content. It selects an admitted route and grant; a credentialed operation also
+content. Sealed streams expose policy-relevant semantics to OCC and enforce a
+registered grammar and finite bounds; a digest alone cannot support inspection.
+No whole unbounded body needs to be buffered. It selects an admitted route and grant; a credentialed operation also
 needs a binding. Before material access, OCC checks current authority online over
 the authenticated caller, versioned route, grant and captured operation.
 Unavailable authority, ambiguous routes,
@@ -91,7 +101,7 @@ classify operations against normalized grants, including repository ID and
 action for GitHub. Requests cannot select another source or backend, load a
 driver or widen scope.
 
-After transformations and awaited preparation, OCC freshly checks the actual
+After resolution, or when no material is needed, OCC freshly checks the actual
 immutable operation, authenticated caller, versioned route and grant, and the
 selected material's nonsecret identity and version, or explicit absence of
 material. Policy receives no credential bytes; a send cannot substitute another
@@ -99,14 +109,18 @@ operation or material after the check. Changed routes or grants require
 re-admission and repeated checks. Cached allows cannot substitute for either
 check, even with cached material.
 
-Both checks remain required. Whether their transport can reduce call count
-without weakening either check remains open; this RFC grants no cached-allow or
-atomic-revocation exception.
+Both checks remain fresh online evaluations. Transport encoding may vary, but
+cannot remove a check or reuse a cached allow. This grants no atomic-revocation
+exception.
 
-The sender rechecks material usability and sends once. Each HTTP subrequest,
-redirect, retry or new operation on a reused connection repeats authorization
-and any required resolution. A finite short send-start deadline and the original
-absolute operation deadline bound the send; retries cannot extend the latter.
+For each HTTP subrequest, redirect, retry or new operation on a reused
+connection:
+
+1. Repeat both checks and any required resolution.
+2. Recheck material usability and send once.
+3. Enforce a finite, short send-start deadline and the original absolute
+   operation deadline. Retries cannot extend the latter.
+
 Deadline values, time protocol and transport enforcement remain open.
 
 ## Resolution and custody
@@ -117,7 +131,10 @@ use-bound, single-use handle to trusted code, or `Denied`, `NotReady` or
 `Unavailable`. A handle conveys no authority to send. Material version can
 change independently of configuration generation. The implementation must
 provide nonsecret identity, version and expiry evidence for the final check and
-dispatch; its representation and verification remain open.
+dispatch. [MaterialEvidence and handle validation](runtime-contracts.md#two-policy-checks-and-common-resolution)
+define required fields and associations; physical transport remains to be qualified.
+
+### Dynamic reuse
 
 Dynamic token reuse is confined behind the Resolver by source generation,
 normalized grant and isolation boundary. A narrower grant cannot borrow a
@@ -132,9 +149,11 @@ fallback. Authenticated rejection feedback can prompt background recovery throug
 the lifecycle owner; it does not make lookup schedule refresh or permit an
 automatic sender retry. See [withdrawal and recovery](lifecycle.md#4-withdraw-and-recover).
 
+### Custody
+
 Source policy must permit material at the trusted sender, and its implementation
 must qualify that custody. Registering a refresh source does not itself authorize
-delivery of signing or refresh inputs to the Credential Gateway or other
+delivery of signing or refresh inputs to the Egress Proxy or other
 consumers; those inputs remain confined to the roles that need them under the
 admitted custody policy. Keep provider credentials and resolver handles out of
 Agent workloads, files and diagnostics; strip Agent authentication before
@@ -151,12 +170,14 @@ export to Agents; see [implementation evidence](lifecycle.md#implementation-disc
 
 ## Protect responses
 
-A trusted, provider-specific policy handles successful responses, errors and
-streams, including headers, bodies, trailers and encodings. It passes content
-only when safe, otherwise redacts or refuses it. Refuse a form that cannot be
-handled safely; a provider that can return credentials cannot have unchecked
-pass-through. The Agent receives the permitted response or a placeholder, not
-provider material.
+A trusted provider-specific policy covers successes, errors and streams,
+including headers, bodies, trailers and encodings.
+
+| Result                       | Treatment                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Safe content                 | Pass the permitted response to the Agent.                                                                                                                              |
+| Content requiring protection | Redact or refuse it; unsafe forms cannot pass unchecked. The Agent receives a permitted response or placeholder, not provider material.                                |
+| Provider rejection           | Retain a policy-processed `SafeResponse` and typed exact-version feedback. Preserve the failure where safe; redact or refuse as configured. Never retry automatically. |
 
 A blocked response, provider rejection or local timeout after dispatch does not
 establish that the provider performed no action. Distinguish refusal before
@@ -165,12 +186,15 @@ for the [recovery owner](lifecycle.md#4-withdraw-and-recover).
 
 ## Protocol and bypass boundaries
 
-Prevent unmediated Agent egress. Bind the selected destination and protocol
-authority to the authorized operation. Deny opaque SSH, database and other
-traffic without individually authorizable operations. UDP and QUIC must not
-bypass enforcement. Additional protocols require explicit operation boundaries
-and evidence. Hardened deployment must not silently fall back to no-op egress
-when enforcement or a dependency fails.
+Prevent unmediated Agent egress and bind the destination and protocol authority
+to the authorized operation.
+
+| Traffic or failure                     | Required boundary                                                 |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| Opaque SSH, database and other traffic | Deny without individually authorizable operations.                |
+| UDP and QUIC                           | Prevent bypass of enforcement.                                    |
+| Additional protocols                   | Require explicit operation boundaries and evidence.               |
+| Enforcement or dependency failure      | Hardened deployments must not silently fall back to no-op egress. |
 
 ## Withdrawal and owner loss
 
@@ -208,20 +232,19 @@ separate designs.
 
 ## Accepted limits and open questions
 
-The accepted check-to-send race and best-effort cancellation are described
-above. The other choices below are open work, not additional risk acceptance:
+The check-to-send race and best-effort cancellation are accepted limits. These
+integration choices remain open:
 
-- How are execution bearers issued, bound, delivered and expired? How are
-  bootstrap delegation and discovery identity and transport established?
-- How do external authorization and native IAM relate? What are the final
-  deadline values and time and transport enforcement mechanisms?
-- Which component owns GitHub lifecycle scheduling, and what authenticated
-  issuer hook is needed? How are material identity, version and expiry proved?
-- How will DNS and the pinned Codex HTTP/SSE path be enforced and qualified?
+| Choice                                      | Evidence or constraint                                                                                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First sender/custody transport              | Qualify execution bearer issuance, delivery and lifetime, bootstrap delegation and management identity. Identity fields and audiences are specified. |
+| GitHub lifecycle owner and issuer transport | Select one owner; preserve grant, attempt, material and expiry evidence.                                                                             |
+| First provider/operation slice              | Qualify DNS enforcement and Codex WebSocket boundaries or an HTTP/SSE path.                                                                          |
 
-Identity exchange, mTLS identity, workload-token verification, horizontal proxy
-high availability and proxy fallback need separate work. Alert channels and
-thresholds remain open. Open questions do not weaken the requirements above.
+Engineering must choose concrete deadlines, clocks and alert thresholds within
+these contracts. External authorization integration, identity exchange, horizontal
+HA and proxy fallback need separate work. These choices do not weaken either
+check, the custody boundary or fail-closed behavior.
 
 ## Required validation
 
@@ -233,7 +256,15 @@ using rotating inputs must prove concurrency fencing, durable replacement,
 restart and uncertain-effect recovery. OCE 1.0 must qualify the full static
 inference, GitHub preclone, Codex OAuth and custom dynamic paths.
 
-Check profile capabilities at startup and Agent admission. Minimal CI and
+Migration proof must also exercise stale commands, conflicting request IDs,
+forged attachments/receipts, catalog removal cleanup, late attachment after
+withdrawal, family-wide rotating locks across distinct grants, and rejection of
+N after N+1. Confirm every legacy consumer has moved before removing old exports
+and persistence coupling.
+
+Check profile capabilities at startup and Agent admission against qualification
+evidence for the exact implementation versions, configuration, provider/protocol
+slice and custody. Self-declared capabilities are insufficient. Minimal CI and
 fixture/no-op adapters cannot prove enforcement or injection; deployment
 acceptance alone does not prove material or Agent readiness. Keep source,
 fixture, installed-runtime and live-provider evidence distinct. The

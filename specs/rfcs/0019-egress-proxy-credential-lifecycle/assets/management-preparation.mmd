@@ -2,6 +2,7 @@
 title: "Proposed authorized management preparation"
 config:
   theme: base
+  htmlLabels: true
   themeVariables:
     fontFamily: "Arial, sans-serif"
     fontSize: "16px"
@@ -26,35 +27,36 @@ config:
     wrap: true
 ---
 sequenceDiagram
-  participant M as Trusted<br/>management
-  participant C as OCC
-  participant L as Designated<br/>lifecycle owner
+  participant M as Trusted OCC management
+  participant C as OCC authority
+  participant L as Refresh owner
+  participant F as Forwarder
   participant P as Provider
-  Note over M,C: Authenticated management caller and admitted purpose<br/>Agent flags and bootstrap delegation cannot select this path
-  M->>C: 1. Current authority before access
-  Note over M,C: Bind caller / user, tenant, source,<br/>purpose, grant, destination and operation
-  C-->>M: Allow, deny or unavailable
+  Note over M,P: Proposed flow, logical contracts do not require separate daemons
+  M->>C: Authenticate caller / user and exact preparation purpose
+  C-->>M: Preparation Permit or refusal
   break Denied or authority unavailable
     Note over M,C: Refuse before material access
   end
-  M->>L: Request usable material<br/>within original deadline
-  Note over L,P: Reuse or prepare through the same lifecycle owner<br/>Owner authorizes its issuer operations
-  L->>L: Reuse if eligible<br/>Otherwise coordinated preparation
-  Note over M,L: Roots stay confined#59; no second refresher<br/>A failed retrieval may follow a completed refresh
-  L-->>M: Usable runtime material + evidence, or failure
-  break Failed, withdrawn, unusable or too late
-    Note over M,L: Refuse use#59; retain uncertain attempt
-    Note over M,L: Reconcile refresh effects#59; no blind replay
+  M->>L: prepare(Preparation, Command)
+  Note over M,L: Same fenced owner, owner authorizes issuer I/O<br/>Agent / bootstrap cannot select preparation
+  L-->>M: Change of LifecycleStatus
+  break Failed, uncertain, withdrawn or too late
+    Note over M,L: Preserve operation and cleanup, inspect / reconcile, no blind replay
   end
-  M->>M: Freeze actual operation and material
-  M->>C: 2. Fresh authority after preparation
-  Note over M,C: Check actual operation, versioned route and grant,<br/>material identity / version#59; no credential bytes
-  C-->>M: Allow, deny or unavailable
-  alt Allowed, material usable, within original deadline
-    M->>P: Inject material#59; send once
-    P-->>M: Response or failure
-    M->>M: Apply response policy<br/>Return sanitized metadata only
+  M->>F: capture authenticated business operation, forward
+  F->>C: EgressAuthorizer.check(before_access)
+  C-->>F: AccessPermit or Refusal
+  F->>F: CredentialResolver.resolve via readWarm<br/>No request-path issuance
+  F->>C: EgressAuthorizer.check(before_send)<br/>Actual operation + MaterialEvidence
+  C-->>F: SendPermit or Refusal
+  alt Both checks allow and material usable within original deadline
+    F->>P: Inject and send once
+    P-->>F: Provider response
+    F->>F: Apply registered response policy
+    F-->>M: SafeResponse or blocked / uncertain outcome
+    M->>M: Return sanitized metadata only
   else Denied, unavailable, unusable or too late
-    M->>M: Refuse before provider send
+    F-->>M: Refuse before dispatch
   end
-  Note over M,P: No provider tokens or handles to Agent or UI<br/>Each provider operation repeats both checks<br/>No automatic sender retry
+  Note over M,P: Roots stay with owner / issuer, no tokens or handles to Agent / UI<br/>No automatic retry after possible dispatch

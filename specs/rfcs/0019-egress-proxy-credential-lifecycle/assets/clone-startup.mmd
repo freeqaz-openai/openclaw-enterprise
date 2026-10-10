@@ -24,10 +24,10 @@ config:
 ---
 flowchart TB
   Repo{"<b>Repository</b><br/>configured?"}
-  Warm["<b>Startup warm wait</b><br/>Lifecycle owner prepares<br/>Within startup bound"]
+  Warm["<b>Startup warm wait</b><br/>CredentialRefreshDriver<br/>refreshStatus + receipt"]
   Bootstrap["<b>Trusted bootstrap</b><br/>Execution + repository<br/>delegation"]
-  Sender["<b>Bootstrap sender</b><br/>OCC 1 → warm lookup<br/>→ OCC 2"]
-  Clone["<b>Clone through sender</b><br/>Recheck usability<br/>Inject token, send"]
+  Sender["<b>EgressForwarder</b><br/>capture / forward<br/>check → resolve → check"]
+  Clone["<b>Clone through sender</b><br/>EgressForwarder sends<br/>After usability check"]
   Start["<b>Compute starts Agent</b><br/>All required gates met"]
   Block["<b>Compute / bootstrap</b><br/>Block + own cleanup<br/>No blind clone replay"]
   Repo -. no clone .-> Start
