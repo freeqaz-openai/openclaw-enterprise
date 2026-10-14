@@ -975,6 +975,9 @@ export function installFixture(scenario, evidence) {
         }
         const revision = snapshot(saved, nextId("rev"), 1);
         revisions.set(revision.id, revision);
+        if (scenario.provisionedDeploymentStopped) {
+          saved.desiredRuntimeState = "stopped";
+        }
         deployments.set(revision.id, {
           deploymentId: revision.id,
           namespaceId,
