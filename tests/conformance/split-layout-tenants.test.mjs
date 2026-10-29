@@ -821,7 +821,9 @@ test("import refuses non-array destination inventories before adopting a populat
           names: { "team-a": destination.name },
         },
       ),
-      { message: `GET ${base}/agents: expected an array data envelope` },
+      {
+        message: `GET ${base}/agents: invalid OCC collection response; expected an array in data. Keep the original bundle and map, if present. Correct the OCC endpoint and reconcile any earlier writes before resuming the original operation.`,
+      },
     );
     assert.equal(saves, 0);
     assert.equal(writes, 0);

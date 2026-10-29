@@ -104,7 +104,9 @@ const ns = (id) => `/namespaces/${encodeURIComponent(id)}`;
 const list = async (api, path) => {
   const { data } = await api.expect("GET", path);
   if (!Array.isArray(data)) {
-    throw new SplitLayoutError(`GET ${path.slice(0, 240)}: expected an array data envelope`);
+    throw new SplitLayoutError(
+      `GET ${path.slice(0, 240)}: invalid OCC collection response; expected an array in data. Keep the original bundle and map, if present. Correct the OCC endpoint and reconcile any earlier writes before resuming the original operation.`,
+    );
   }
   return data;
 };

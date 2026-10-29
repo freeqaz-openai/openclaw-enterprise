@@ -49,6 +49,10 @@ graph TD
 Collection reads must return an array in `data`. A successful HTTP status with
 a non-array collection stops the import at that read; it is not an empty
 Namespace inventory. The error reports a bounded request path, not response content.
+Keep the original bundle and map, if present. Correct the OCC endpoint and
+reconcile any earlier writes before resuming the original operation. This check
+also applies to export and discard; do not blindly retry a partially completed
+operation.
 
 The importer checks required Secret values and refuses selected sources that
 share a destination name or saved destination ID. Saved destinations remain
