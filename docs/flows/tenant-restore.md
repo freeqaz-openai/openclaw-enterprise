@@ -46,6 +46,10 @@ graph TD
 
 `scripts/split-layout-tenants.mjs:importTenants`
 
+Collection reads must return an array in `data`. A successful HTTP status with
+a non-array collection stops the import at that read; it is not an empty
+Namespace inventory. The error reports a bounded request path, not response content.
+
 The importer checks required Secret values and refuses selected sources that
 share a destination name or saved destination ID. Saved destinations remain
 reserved even when their sources are skipped. It creates missing Namespaces or

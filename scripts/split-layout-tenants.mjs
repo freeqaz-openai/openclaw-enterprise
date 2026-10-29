@@ -101,7 +101,13 @@ export function createOccApi({ baseUrl, headers = {}, fetchImpl = fetch }) {
 }
 
 const ns = (id) => `/namespaces/${encodeURIComponent(id)}`;
-const list = async (api, path) => (await api.expect("GET", path)).data ?? [];
+const list = async (api, path) => {
+  const { data } = await api.expect("GET", path);
+  if (!Array.isArray(data)) {
+    throw new SplitLayoutError(`GET ${path.slice(0, 240)}: expected an array data envelope`);
+  }
+  return data;
+};
 
 /** Reads every Namespace's tenant resources into a bundle. Read-only. */
 export async function exportTenants(api, { log = () => {} } = {}) {
